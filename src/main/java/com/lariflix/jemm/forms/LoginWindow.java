@@ -3,6 +3,7 @@ package com.lariflix.jemm.forms;
 import com.lariflix.jemm.core.CheckJellyfinConnection;
 import com.lariflix.jemm.dtos.JellyfinConnectionResult;
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
+import com.lariflix.jemm.utils.JemmCredentialsStore;
 import com.lariflix.jemm.utils.JellyfinUtilFunctions;
 import com.lariflix.jemm.utils.JemmVersion;
 import java.awt.Desktop;
@@ -282,6 +283,11 @@ public class LoginWindow extends javax.swing.JFrame {
             tryConnection = new CheckJellyfinConnection().tryConnection(instanceData.credentials.getBaseURL(), instanceData.credentials.getTokenAPI());
         
             if (tryConnection.isIsConnected() ) {
+
+                new JemmCredentialsStore().save(
+                    instanceData.credentials.getBaseURL(),
+                    instanceData.credentials.getTokenAPI()
+                );
 
                 this.dispose();
                 MainWindow mainWindow = new MainWindow();

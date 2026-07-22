@@ -3,6 +3,7 @@ package com.lariflix.jemm;
 import com.lariflix.jemm.dtos.JellyfinCredentials;
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
 import com.lariflix.jemm.forms.LoginWindow;
+import com.lariflix.jemm.utils.JemmCredentialsStore;
 import com.lariflix.jemm.utils.JellyfinLookAndFell;
 import java.net.MalformedURLException;
 
@@ -49,6 +50,10 @@ public class Jemm {
             JellyfinCredentials credentials = new JellyfinCredentials(cURL,cTokenAPI);            
             instanceData.setCredentials(credentials);
             instanceData.setIsDebug(isDebug);
+        } else {
+            // No CLI args: restore last successful login from Preferences
+            JellyfinCredentials savedCredentials = new JemmCredentialsStore().load();
+            instanceData.setCredentials(savedCredentials);
         }
         
         //Set Look And Feel Apereance
