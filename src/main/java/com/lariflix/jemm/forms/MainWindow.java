@@ -1540,13 +1540,11 @@ public class MainWindow extends javax.swing.JFrame {
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         try {
-            if (this.checkAllMandatoryFieldsIsOk()){
-                this.saveFolder();
-                
-                //Show confirmation Dialog
-                String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' was succesfully updated.");    
-                new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
-            }    
+            this.saveFolder();
+
+            //Show confirmation Dialog
+            String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' was succesfully updated.");
+            new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
         } catch (java.text.ParseException ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1554,18 +1552,15 @@ public class MainWindow extends javax.swing.JFrame {
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
         try {
-            if (this.checkAllMandatoryFieldsIsOk()){
-                this.saveFolder();
-                this.saveContent(true);
-                
-                //Show confirmation Dialog
-                String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' and all their content was succesfully updated.");                
-                new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
+            this.saveFolder();
+            this.saveContent(true);
 
-            }
+            //Show confirmation Dialog
+            String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' and all their content was succesfully updated.");
+            new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
         } catch (java.text.ParseException ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
-        }        
+        }
     }//GEN-LAST:event_jButton3ActionPerformed
 
     private void jTextField6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField6ActionPerformed
@@ -1639,9 +1634,7 @@ public class MainWindow extends javax.swing.JFrame {
 
     private void jButton20ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton20ActionPerformed
         try {
-            if (this.checkAllMandatoryFieldsIsOk()){
-                this.saveContent(false);
-            }
+            this.saveContent(false);
         } catch (java.text.ParseException ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -3187,136 +3180,128 @@ public class MainWindow extends javax.swing.JFrame {
     }
 
     /**
-     * This method is used to save the folder after checking all mandatory fields.
-     * It updates the values in the main object from GUI Objects and posts updates on the Jellyfin instance.
-     * 
+     * Saves the folder by updating values from GUI objects and posting updates to Jellyfin.
+     *
      * @throws java.text.ParseException If parsing the date fails.
      * @autor Cesar Bianchi
-     * @see checkAllMandatoryFieldsIsOk()
      * @since 1.0
      */
     private void saveFolder() throws java.text.ParseException {
-        if (this.checkAllMandatoryFieldsIsOk()){        
-            this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-            
-            //Update values in main object, from GUI Objects
-            this.setFolderInstObjFromGUI(jList2.getSelectedIndex());
-            String folderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
+        this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        //Update values in main object, from GUI Objects
+        this.setFolderInstObjFromGUI(jList2.getSelectedIndex());
+        String folderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
 
 
-            // Create a new waiting dialog
-            JDialog waitDiag = new JDialog(this, "Please wait...", true);
-            waitDiag.setLayout(new BorderLayout());
-            waitDiag.setSize(600, 110);
-            waitDiag.setResizable(false);
-            waitDiag.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-            waitDiag.setLocationRelativeTo(this);
+        // Create a new waiting dialog
+        JDialog waitDiag = new JDialog(this, "Please wait...", true);
+        waitDiag.setLayout(new BorderLayout());
+        waitDiag.setSize(600, 110);
+        waitDiag.setResizable(false);
+        waitDiag.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        waitDiag.setLocationRelativeTo(this);
 
 
-            JLabel labelIco = new JLabel();
-            labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-            labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon()); // NOI18N
-            JLabel label = new JLabel("Saving Folder changes...", JLabel.CENTER);
+        JLabel labelIco = new JLabel();
+        labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon()); // NOI18N
+        JLabel label = new JLabel("Saving Folder changes...", JLabel.CENTER);
 
-            JProgressBar bar = new JProgressBar();
-            bar.setIndeterminate(true);
+        JProgressBar bar = new JProgressBar();
+        bar.setIndeterminate(true);
 
-            waitDiag.add(labelIco,BorderLayout.NORTH);
-            waitDiag.add(label, BorderLayout.CENTER);
-            waitDiag.add(bar, BorderLayout.SOUTH);
+        waitDiag.add(labelIco,BorderLayout.NORTH);
+        waitDiag.add(label, BorderLayout.CENTER);
+        waitDiag.add(bar, BorderLayout.SOUTH);
 
-            
-            SwingWorker<Void, Void> worker = new SwingWorker<>() {
-                @Override
-                protected Void doInBackground() throws Exception {      
 
-                    //Post Updates on Jellyfin instance
-                    connectAPI.postUpdate(folderID, "", instanceData, jemmParameters.FOLDERS_AND_SUBFOLDERS);
-                    
-                    return null;
-                }
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() throws Exception {
 
-                @Override
-                protected void done() {
-                    waitDiag.dispose();
-                }
-            };
-            worker.execute();
-            waitDiag.setVisible(true);
-         
-            this.setCursor(Cursor.getDefaultCursor());
-        }
+                //Post Updates on Jellyfin instance
+                connectAPI.postUpdate(folderID, "", instanceData, jemmParameters.FOLDERS_AND_SUBFOLDERS);
+
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                waitDiag.dispose();
+            }
+        };
+        worker.execute();
+        waitDiag.setVisible(true);
+
+        this.setCursor(Cursor.getDefaultCursor());
     }
     
     /**
-     * This method is used to save the content after checking all mandatory fields.
-     * It updates the values in the main object from GUI Objects and posts updates on the Jellyfin instance.
-     * 
+     * Saves content by updating values from GUI objects and posting updates to Jellyfin.
+     *
      * @param lAll A boolean that determines whether all content should be saved.
      * @throws java.text.ParseException If parsing the date fails.
      * @author Cesar Bianchi
      * @since 1.0
      */
     private void saveContent(boolean lAll) throws java.text.ParseException {
-        
-        if (this.checkAllMandatoryFieldsIsOk()){ 
-            int folderIndex = jList2.getSelectedIndex();
-            this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-            this.setFolderItemsInstObjFromGUI(folderIndex,lAll);
+        int folderIndex = jList2.getSelectedIndex();
+        this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        this.setFolderItemsInstObjFromGUI(folderIndex,lAll);
 
-            // Create a new waiting dialog
-            JDialog waitDiag = new JDialog(this, "Please wait...", true);
-            waitDiag.setLayout(new BorderLayout());
-            waitDiag.setSize(600, 110);
-            waitDiag.setResizable(false);
-            waitDiag.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-            waitDiag.setLocationRelativeTo(this);
+        // Create a new waiting dialog
+        JDialog waitDiag = new JDialog(this, "Please wait...", true);
+        waitDiag.setLayout(new BorderLayout());
+        waitDiag.setSize(600, 110);
+        waitDiag.setResizable(false);
+        waitDiag.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        waitDiag.setLocationRelativeTo(this);
 
 
-            JLabel labelIco = new JLabel();
-            labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-            labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon()); // NOI18N
-            JLabel label = new JLabel("Saving Itens and Metadata changes...", JLabel.CENTER);
+        JLabel labelIco = new JLabel();
+        labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon()); // NOI18N
+        JLabel label = new JLabel("Saving Itens and Metadata changes...", JLabel.CENTER);
 
-            JProgressBar bar = new JProgressBar();
-            bar.setIndeterminate(true);
+        JProgressBar bar = new JProgressBar();
+        bar.setIndeterminate(true);
 
-            waitDiag.add(labelIco,BorderLayout.NORTH);
-            waitDiag.add(label, BorderLayout.CENTER);
-            waitDiag.add(bar, BorderLayout.SOUTH);
+        waitDiag.add(labelIco,BorderLayout.NORTH);
+        waitDiag.add(label, BorderLayout.CENTER);
+        waitDiag.add(bar, BorderLayout.SOUTH);
 
-            
-            SwingWorker<Void, Void> worker = new SwingWorker<>() {
-                @Override
-                protected Void doInBackground() throws Exception {      
 
-                    //Post Updates on Jellyfin instance
-                    try {
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() throws Exception {
 
-                        for (int nI = 0; nI < instanceData.getFolders().getItems().get(folderIndex).getFolderContent().getItems().size(); nI++ ){
-                            String cFolderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
-                            String cItemID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getFolderContent().getItems().get(nI).getId();
+                //Post Updates on Jellyfin instance
+                try {
 
-                            connectAPI.postUpdate(cFolderID, cItemID, instanceData, jemmParameters.JUST_ITEMS);                
-                        }
+                    for (int nI = 0; nI < instanceData.getFolders().getItems().get(folderIndex).getFolderContent().getItems().size(); nI++ ){
+                        String cFolderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
+                        String cItemID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getFolderContent().getItems().get(nI).getId();
 
-                    } catch (IOException | ParseException ex) {
-                        Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+                        connectAPI.postUpdate(cFolderID, cItemID, instanceData, jemmParameters.JUST_ITEMS);
                     }
-                    return null;
+
+                } catch (IOException | ParseException ex) {
+                    Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
                 }
+                return null;
+            }
 
-                @Override
-                protected void done() {
-                    waitDiag.dispose();
-                }
-            };
-            worker.execute();
-            waitDiag.setVisible(true);
+            @Override
+            protected void done() {
+                waitDiag.dispose();
+            }
+        };
+        worker.execute();
+        waitDiag.setVisible(true);
 
 
-            this.setCursor(Cursor.getDefaultCursor());
-        }
+        this.setCursor(Cursor.getDefaultCursor());
     }
 
     /**
@@ -3392,7 +3377,7 @@ public class MainWindow extends javax.swing.JFrame {
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setName(jTextField2.getText().trim());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setSortName(jTextField6.getText().trim());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setForcedSortName(jTextField7.getText().trim());
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setDateCreated(transforDate.getFullDateFromSimple(jTextField8.getText().trim()));
+        instanceData.getFolders().getItems().get(nIndex).getMetadata().setDateCreated(transforDate.getFullDateFromSimple(jTextField3.getText().trim()));
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPremiereDate(transforDate.getFullDateFromSimple(jTextField8.getText().trim()));
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCanDownload(false);
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPreferredMetadataLanguage("pt-br");
@@ -3736,45 +3721,6 @@ public class MainWindow extends javax.swing.JFrame {
         return episodeName;
     }
 
-    /**
-     * This method is used to check if all mandatory fields are filled.
-     * 
-     * @return A boolean indicating whether all mandatory fields are filled.
-     * @throws java.text.ParseException If parsing the date fails.
-     * @author Cesar Bianchi
-     * @since 1.0
-     * @see JOptionPane#showMessageDialog(Component, Object, String, int, Icon)
-     */
-    private boolean checkAllMandatoryFieldsIsOk() {
-        boolean lret = true;
-        String mandatoryFieldsMsg = new String();
-        
-        if (jTextField2.getText().isEmpty()){
-            mandatoryFieldsMsg = "The 'Title' field is mandatory. Please, make sure it is filled out!";
-            lret = false;
-        } else if (jTextField6.getText().isEmpty()){
-            mandatoryFieldsMsg = "The 'Sort Name' field is mandatory. Please, make sure it is filled out!";
-            lret = false;    
-        } else if (jTextField7.getText().isEmpty()){
-            mandatoryFieldsMsg = "The 'Forced Sort Name' field is mandatory. Please, make sure it is filled out!";
-            lret = false;    
-        } else if (jTextField3.getText().isEmpty()) {
-            mandatoryFieldsMsg = "The 'Created Date' field is mandatory. Please, make sure it is filled out!";
-            lret = false;    
-        } else if (jTextField8.getText().isEmpty()) {
-            mandatoryFieldsMsg = "The 'Premiere Date' field is mandatory. Please, make sure it is filled out!";
-            lret = false; 
-        } else {
-            lret = true;
-        }
-        
-        if (!lret){                        
-            new JellyfinUtilFunctions().showMessage("Pay Attention!!", mandatoryFieldsMsg,JOptionPane.WARNING_MESSAGE);
-        }
-        
-        return lret;
-    }
-    
     /**
      * Reloads the folder items displayed in the MainWindow.
      *

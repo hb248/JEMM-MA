@@ -322,7 +322,7 @@ public class AddPeoplePanel extends javax.swing.JPanel {
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         
         //First, check if all mandatory fields are full
-        if (!jTextField2.getText().trim().isEmpty() && !jTextField3.getText().trim().isEmpty()) {
+        if (!jTextField2.getText().trim().isEmpty()) {
             Window win = SwingUtilities.getWindowAncestor(this);
             if (win != null) {
                 win.dispose();
