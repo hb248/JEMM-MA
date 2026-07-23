@@ -3714,6 +3714,7 @@ public class MainWindow extends javax.swing.JFrame {
     /**
      * @deprecated Replaced by applyFolderScalarsToContentTable + merge lists.
      */
+    @Deprecated
     private void replaceItensContentFromFolder() throws java.text.ParseException {
         applyFolderScalarsToContentTable();
     }

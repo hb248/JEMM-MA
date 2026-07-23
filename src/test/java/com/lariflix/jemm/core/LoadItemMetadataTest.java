@@ -40,6 +40,6 @@ public class LoadItemMetadataTest {
         loadItemMetadata.setApiToken("1234567890");
         loadItemMetadata.setcUserAdminID("admin");
         loadItemMetadata.setcItemID("item1");
-        assertEquals("http://localhost:8096/Users/admin/Items/item1?ApiKey=1234567890", loadItemMetadata.getFullURL());
+        assertEquals("http://localhost:8096/Users/admin/Items/item1?Fields=MediaSources,MediaStreams,Path,Overview,People,Genres,Tags,Studios&ApiKey=1234567890", loadItemMetadata.getFullURL());
     }
 }
