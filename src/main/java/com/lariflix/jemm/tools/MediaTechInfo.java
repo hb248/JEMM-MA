@@ -82,33 +82,43 @@ public class MediaTechInfo {
         if (sources == null) {
             return null;
         }
-        JellyfinMediaStream fallback = null;
+        JellyfinMediaStream typedFallback = null;
+        JellyfinMediaStream anyDimensioned = null;
         for (JellyfinMediaSource source : sources) {
             if (source == null || source.getMediaStreams() == null) {
                 continue;
             }
             for (JellyfinMediaStream stream : source.getMediaStreams()) {
-                if (stream == null || stream.getType() == null) {
+                if (stream == null) {
+                    continue;
+                }
+                boolean dimensioned = stream.getWidth() != null && stream.getHeight() != null
+                        && stream.getWidth() > 0 && stream.getHeight() > 0;
+                if (dimensioned && anyDimensioned == null) {
+                    anyDimensioned = stream;
+                }
+                if (stream.getType() == null) {
                     continue;
                 }
                 String streamType = stream.getType().toLowerCase(Locale.ROOT);
                 boolean match = preferImage ? streamType.contains("video") || streamType.contains("embeddedimage")
                         : streamType.equals("video");
-                if (!match && preferImage && stream.getWidth() != null && stream.getHeight() != null) {
+                if (!match && preferImage && dimensioned) {
                     match = true;
                 }
                 if (!match) {
                     continue;
                 }
-                if (stream.isIsDefault()) {
+                if (stream.isIsDefault() && dimensioned) {
                     return stream;
                 }
-                if (fallback == null && stream.getWidth() != null && stream.getHeight() != null) {
-                    fallback = stream;
+                if (typedFallback == null && dimensioned) {
+                    typedFallback = stream;
                 }
             }
         }
-        return fallback;
+        // Prefer a typed (video/image) stream; otherwise any stream that carries width/height.
+        return typedFallback != null ? typedFallback : anyDimensioned;
     }
 
     private static String safe(String value) {

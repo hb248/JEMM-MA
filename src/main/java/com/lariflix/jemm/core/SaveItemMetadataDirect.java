@@ -52,7 +52,15 @@ public class SaveItemMetadataDirect {
 
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode();
+            int code = response.statusCode();
+            if (code < 200 || code >= 300) {
+                String body = response.body();
+                String detail = (body == null || body.isBlank())
+                        ? ""
+                        : ": " + body.substring(0, Math.min(body.length(), 500)).replaceAll("\\s+", " ").trim();
+                throw new IOException("HTTP " + code + " for item " + metadata.getId() + detail);
+            }
+            return code;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IOException("Request interrupted while posting item update", ex);
@@ -89,13 +97,13 @@ public class SaveItemMetadataDirect {
         }
         itemToUpdate.setGenres(genres);
         itemToUpdate.setTags(metadata.getTags() == null ? new ArrayList<>() : metadata.getTags());
-        itemToUpdate.setStudios(metadata.getStudios() == null ? new ArrayList<>() : metadata.getStudios());
+        itemToUpdate.setStudios(normalizeStudios(metadata.getStudios()));
         itemToUpdate.setPremiereDate(transformDate.convertToFull(metadata.getPremiereDate()));
         itemToUpdate.setDateCreated(transformDate.convertToFull(metadata.getDateCreated()));
         itemToUpdate.setProductionYear(metadata.getProductionYear());
         itemToUpdate.setOfficialRating(metadata.getOfficialRating());
         itemToUpdate.setCustomRating(metadata.getCustomRating());
-        itemToUpdate.setPeople(metadata.getPeople() == null ? new ArrayList<>() : metadata.getPeople());
+        itemToUpdate.setPeople(normalizePeople(metadata.getPeople()));
         itemToUpdate.setLockData(false);
         itemToUpdate.setPreferredMetadataLanguage(metadata.getPreferredMetadataLanguage());
         itemToUpdate.setPreferredMetadataCountryCode(metadata.getPreferredMetadataCountryCode());
@@ -106,5 +114,46 @@ public class SaveItemMetadataDirect {
         providerID.setTmdbCollection("");
         itemToUpdate.setProviderIds(providerID);
         return itemToUpdate;
+    }
+
+    /**
+     * Jellyfin rejects an empty string {@code ""} as an Id because it cannot be parsed as a GUID.
+     * New entries added in the UI have no Id yet, so blank Ids are converted to {@code null},
+     * which Jellyfin accepts and resolves/creates by name.
+     */
+    private ArrayList<com.lariflix.jemm.dtos.JellyfinPeopleItem> normalizePeople(
+            ArrayList<com.lariflix.jemm.dtos.JellyfinPeopleItem> people) {
+        ArrayList<com.lariflix.jemm.dtos.JellyfinPeopleItem> result = new ArrayList<>();
+        if (people == null) {
+            return result;
+        }
+        for (com.lariflix.jemm.dtos.JellyfinPeopleItem person : people) {
+            if (person == null || person.getName() == null || person.getName().isBlank()) {
+                continue;
+            }
+            if (person.getId() != null && person.getId().isBlank()) {
+                person.setId(null);
+            }
+            result.add(person);
+        }
+        return result;
+    }
+
+    private ArrayList<com.lariflix.jemm.dtos.JellyfinStudioItem> normalizeStudios(
+            ArrayList<com.lariflix.jemm.dtos.JellyfinStudioItem> studios) {
+        ArrayList<com.lariflix.jemm.dtos.JellyfinStudioItem> result = new ArrayList<>();
+        if (studios == null) {
+            return result;
+        }
+        for (com.lariflix.jemm.dtos.JellyfinStudioItem studio : studios) {
+            if (studio == null || studio.getName() == null || studio.getName().isBlank()) {
+                continue;
+            }
+            if (studio.getId() != null && studio.getId().isBlank()) {
+                studio.setId(null);
+            }
+            result.add(studio);
+        }
+        return result;
     }
 }

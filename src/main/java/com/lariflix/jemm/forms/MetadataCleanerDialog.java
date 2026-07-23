@@ -40,6 +40,8 @@ public class MetadataCleanerDialog extends JDialog {
     private final JProgressBar progressBar = new JProgressBar();
     private final JButton startButton = new JButton("Clear selected metadata");
 
+    private String firstError;
+
     public MetadataCleanerDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
         super(owner, "JEMM - Metadata Cleaner", true);
         this.api = api;
@@ -146,15 +148,14 @@ public class MetadataCleanerDialog extends JDialog {
                         if (!changed) {
                             result.skipped++;
                         } else {
-                            int code = saver.postUpdate(item.getMetadata());
-                            if (code >= 200 && code < 300) {
-                                result.updated++;
-                            } else {
-                                result.failed++;
-                            }
+                            saver.postUpdate(item.getMetadata());
+                            result.updated++;
                         }
                     } catch (Exception ex) {
                         result.failed++;
+                        if (firstError == null) {
+                            firstError = ex.getMessage();
+                        }
                     }
                     final int progress = index;
                     javax.swing.SwingUtilities.invokeLater(() -> progressBar.setValue(progress));
@@ -176,7 +177,15 @@ public class MetadataCleanerDialog extends JDialog {
                 try {
                     BatchJobResult result = get();
                     statusLabel.setText("Done.");
-                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, result.summary("Metadata Cleaner"), "Metadata Cleaner", JOptionPane.INFORMATION_MESSAGE);
+                    StringBuilder msg = new StringBuilder(result.summary("Metadata Cleaner"));
+                    if (result.skipped > 0) {
+                        msg.append("\n\nSkipped = nothing to remove (the selected lists were already empty).");
+                    }
+                    if (result.failed > 0 && firstError != null) {
+                        msg.append("\n\nFirst error:\n").append(firstError);
+                    }
+                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, msg.toString(), "Metadata Cleaner",
+                            result.failed > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(MetadataCleanerDialog.this, "Metadata Cleaner failed: " + ex.getMessage(), "Metadata Cleaner", JOptionPane.ERROR_MESSAGE);
                 }

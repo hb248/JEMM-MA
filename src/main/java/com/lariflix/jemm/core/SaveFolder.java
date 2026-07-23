@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
 import com.lariflix.jemm.dtos.JellyfinItemUpdate;
+import com.lariflix.jemm.dtos.JellyfinPeopleItem;
 import com.lariflix.jemm.dtos.JellyfinProviderIds;
+import com.lariflix.jemm.dtos.JellyfinStudioItem;
 import com.lariflix.jemm.utils.JellyfinParameters;
 import com.lariflix.jemm.utils.TransformDateFormat;
 import java.io.IOException;
@@ -127,6 +129,44 @@ public class SaveFolder {
      * @since 1.0
      * @author Cesar Bianchi
      */
+    /**
+     * Jellyfin rejects an empty string {@code ""} as an Id because it cannot be parsed as a GUID.
+     * Newly added entries have no Id yet, so blank Ids are converted to {@code null} (accepted by Jellyfin).
+     */
+    private static ArrayList<JellyfinPeopleItem> normalizePeople(ArrayList<JellyfinPeopleItem> people) {
+        ArrayList<JellyfinPeopleItem> result = new ArrayList<>();
+        if (people == null) {
+            return result;
+        }
+        for (JellyfinPeopleItem person : people) {
+            if (person == null || person.getName() == null || person.getName().isBlank()) {
+                continue;
+            }
+            if (person.getId() != null && person.getId().isBlank()) {
+                person.setId(null);
+            }
+            result.add(person);
+        }
+        return result;
+    }
+
+    private static ArrayList<JellyfinStudioItem> normalizeStudios(ArrayList<JellyfinStudioItem> studios) {
+        ArrayList<JellyfinStudioItem> result = new ArrayList<>();
+        if (studios == null) {
+            return result;
+        }
+        for (JellyfinStudioItem studio : studios) {
+            if (studio == null || studio.getName() == null || studio.getName().isBlank()) {
+                continue;
+            }
+            if (studio.getId() != null && studio.getId().isBlank()) {
+                studio.setId(null);
+            }
+            result.add(studio);
+        }
+        return result;
+    }
+
     private JellyfinItemUpdate getObjItemToUpdate() {
         JellyfinItemUpdate itemToUpdate = new JellyfinItemUpdate();
         ArrayList<String> genres = new ArrayList();
@@ -153,18 +193,20 @@ public class SaveFolder {
                     itemToUpdate.setOverview(instance.getFolders().getItems().get(nI).getMetadata().getOverview());
                     itemToUpdate.setStatus("");
                     
-                    for (int nJ = 0; nJ < instance.getFolders().getItems().get(nI).getMetadata().getGenreItems().size(); nJ++){
-                        genres.add(instance.getFolders().getItems().get(nI).getMetadata().getGenreItems().get(nJ).getName());
+                    if (instance.getFolders().getItems().get(nI).getMetadata().getGenreItems() != null) {
+                        for (int nJ = 0; nJ < instance.getFolders().getItems().get(nI).getMetadata().getGenreItems().size(); nJ++){
+                            genres.add(instance.getFolders().getItems().get(nI).getMetadata().getGenreItems().get(nJ).getName());
+                        }
                     }
                     itemToUpdate.setGenres(genres);                    
                     itemToUpdate.setTags(instance.getFolders().getItems().get(nI).getMetadata().getTags());
-                    itemToUpdate.setStudios(instance.getFolders().getItems().get(nI).getMetadata().getStudios());
+                    itemToUpdate.setStudios(normalizeStudios(instance.getFolders().getItems().get(nI).getMetadata().getStudios()));
                     itemToUpdate.setPremiereDate(transformDate.convertToFull(instance.getFolders().getItems().get(nI).getMetadata().getPremiereDate()) );
                     itemToUpdate.setDateCreated(transformDate.convertToFull(instance.getFolders().getItems().get(nI).getMetadata().getDateCreated()) );
                     itemToUpdate.setProductionYear(instance.getFolders().getItems().get(nI).getMetadata().getProductionYear());
                     itemToUpdate.setOfficialRating(instance.getFolders().getItems().get(nI).getMetadata().getOfficialRating());
                     itemToUpdate.setCustomRating(instance.getFolders().getItems().get(nI).getMetadata().getCustomRating());
-                    itemToUpdate.setPeople(instance.getFolders().getItems().get(nI).getMetadata().getPeople());
+                    itemToUpdate.setPeople(normalizePeople(instance.getFolders().getItems().get(nI).getMetadata().getPeople()));
                     itemToUpdate.setLockData(false);
                     itemToUpdate.setPreferredMetadataLanguage(instance.getFolders().getItems().get(nI).getMetadata().getPreferredMetadataLanguage());
                     itemToUpdate.setPreferredMetadataCountryCode(instance.getFolders().getItems().get(nI).getMetadata().getPreferredMetadataCountryCode());
@@ -225,14 +267,14 @@ public class SaveFolder {
                             
                             
                             
-                            itemToUpdate.setStudios(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getStudios());
+                            itemToUpdate.setStudios(normalizeStudios(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getStudios()));
                             itemToUpdate.setPremiereDate( transformDate.convertToFull(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getPremiereDate()) );
                             
                             itemToUpdate.setDateCreated(transformDate.convertToFull(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getDateCreated()) );
                             itemToUpdate.setProductionYear(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getProductionYear());
                             itemToUpdate.setOfficialRating(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getOfficialRating());
                             itemToUpdate.setCustomRating(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getCustomRating());
-                            itemToUpdate.setPeople(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getPeople());
+                            itemToUpdate.setPeople(normalizePeople(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getPeople()));
                             itemToUpdate.setLockData(false);
                             itemToUpdate.setPreferredMetadataLanguage(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getPreferredMetadataLanguage());
                             itemToUpdate.setPreferredMetadataCountryCode(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getPreferredMetadataCountryCode());

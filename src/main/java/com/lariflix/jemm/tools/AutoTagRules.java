@@ -142,6 +142,15 @@ public class AutoTagRules {
         }
         String normalized = aspectRatio.trim().toLowerCase(Locale.ROOT).replace(':', '/').replace('x', '/');
         String[] parts = normalized.split("/");
+        if (parts.length == 1) {
+            // A single decimal value (e.g. Jellyfin PrimaryImageAspectRatio) is already width/height.
+            try {
+                double ratio = Double.parseDouble(parts[0].trim());
+                return ratio > 0 ? ratio : 0;
+            } catch (NumberFormatException ex) {
+                return 0;
+            }
+        }
         if (parts.length != 2) {
             return 0;
         }

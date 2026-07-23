@@ -36,6 +36,12 @@ public class AutoTagsDialog extends JDialog {
     private final JProgressBar progressBar = new JProgressBar();
     private final JButton startButton = new JButton("Start");
 
+    private int skippedNoResolution;
+    private int skippedNoRules;
+    private int skippedUnchanged;
+    private String firstSkipExample;
+    private String firstError;
+
     public AutoTagsDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
         super(owner, "JEMM - Auto Tags", true);
         this.api = api;
@@ -106,9 +112,24 @@ public class AutoTagsDialog extends JDialog {
                     publish("Item " + index + "/" + items.size());
                     try {
                         MediaTechInfo tech = MediaTechInfo.fromMetadata(item.getMetadata());
-                        List<String> computed = rules.compute(tech, item.getMetadata() == null ? null : item.getMetadata().getAspectRatio());
+                        String aspect = item.getMetadata() == null ? null : item.getMetadata().getAspectRatio();
+                        if ((aspect == null || aspect.isBlank()) && item.getMetadata() != null
+                                && item.getMetadata().getPrimaryImageAspectRatio() > 0) {
+                            aspect = String.valueOf(item.getMetadata().getPrimaryImageAspectRatio());
+                        }
+                        List<String> computed = rules.compute(tech, aspect);
                         if (computed == null || computed.isEmpty()) {
                             result.skipped++;
+                            boolean hasDimensions = tech.getWidth() > 0 && tech.getHeight() > 0;
+                            boolean hasAspect = aspect != null && !aspect.isBlank();
+                            if (!hasDimensions && !hasAspect) {
+                                skippedNoResolution++;
+                                if (firstSkipExample == null) {
+                                    firstSkipExample = describe(item);
+                                }
+                            } else {
+                                skippedNoRules++;
+                            }
                             continue;
                         }
                         ArrayList<String> synced = ManagedAutoTags.sync(
@@ -116,17 +137,17 @@ public class AutoTagsDialog extends JDialog {
                                 computed);
                         if (synced == null) {
                             result.skipped++;
+                            skippedUnchanged++;
                         } else {
                             item.getMetadata().setTags(synced);
-                            int code = saver.postUpdate(item.getMetadata());
-                            if (code >= 200 && code < 300) {
-                                result.updated++;
-                            } else {
-                                result.failed++;
-                            }
+                            saver.postUpdate(item.getMetadata());
+                            result.updated++;
                         }
                     } catch (Exception ex) {
                         result.failed++;
+                        if (firstError == null) {
+                            firstError = ex.getMessage();
+                        }
                     }
                     final int progress = index;
                     javax.swing.SwingUtilities.invokeLater(() -> {
@@ -136,6 +157,20 @@ public class AutoTagsDialog extends JDialog {
                     });
                 }
                 return result;
+            }
+
+            private String describe(SelectedItemsCollector.CollectedItem item) {
+                if (item == null || item.getMetadata() == null) {
+                    return "(no metadata)";
+                }
+                String name = item.getMetadata().getName();
+                String type = item.getMetadata().getType();
+                String mediaType = item.getMetadata().getMediaType();
+                boolean hasSources = item.getMetadata().getMediaSources() != null
+                        && !item.getMetadata().getMediaSources().isEmpty();
+                return (name == null ? item.getItemId() : name)
+                        + " [Type=" + type + ", MediaType=" + mediaType
+                        + ", MediaSources=" + (hasSources ? "yes" : "none") + "]";
             }
 
             private void setProgressMode(int total) {
@@ -161,7 +196,25 @@ public class AutoTagsDialog extends JDialog {
                 try {
                     BatchJobResult result = get();
                     statusLabel.setText("Done.");
-                    JOptionPane.showMessageDialog(AutoTagsDialog.this, result.summary("Auto Tags"), "Auto Tags", JOptionPane.INFORMATION_MESSAGE);
+                    StringBuilder msg = new StringBuilder(result.summary("Auto Tags"));
+                    if (result.skipped > 0) {
+                        msg.append("\n\nSkipped breakdown:");
+                        msg.append("\n- No resolution/aspect info: ").append(skippedNoResolution);
+                        msg.append("\n- Already up to date: ").append(skippedUnchanged);
+                        if (skippedNoRules > 0) {
+                            msg.append("\n- Had info but no rule matched: ").append(skippedNoRules);
+                        }
+                        if (skippedNoResolution > 0 && firstSkipExample != null) {
+                            msg.append("\n\nExample without resolution info:\n").append(firstSkipExample);
+                            msg.append("\n\nTip: those items expose no MediaStreams width/height via Jellyfin,"
+                                    + " so orientation/resolution cannot be derived.");
+                        }
+                    }
+                    if (result.failed > 0 && firstError != null) {
+                        msg.append("\n\nFirst error:\n").append(firstError);
+                    }
+                    JOptionPane.showMessageDialog(AutoTagsDialog.this, msg.toString(), "Auto Tags",
+                            result.failed > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(AutoTagsDialog.this, "Auto Tags failed: " + ex.getMessage(), "Auto Tags", JOptionPane.ERROR_MESSAGE);
                 }

@@ -105,6 +105,17 @@ public class MainWindow extends javax.swing.JFrame {
         jList2.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         jTable5.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 
+        // Update the content detail grids on keyboard navigation too, not only on mouse click.
+        jTable5.getSelectionModel().addListSelectionListener(evt -> {
+            if (!evt.getValueIsAdjusting() && jTable5.getSelectedRow() >= 0) {
+                try {
+                    this.setContentChilds();
+                } catch (RuntimeException ignored) {
+                    // Selection can transiently point past the model while a folder reloads.
+                }
+            }
+        });
+
         JMenuItem autoTagsMenuItem = new JMenuItem("Auto Tags...");
         autoTagsMenuItem.addActionListener(evt -> openAutoTagsDialog());
         jMenu10.add(autoTagsMenuItem);
@@ -3351,6 +3362,7 @@ public class MainWindow extends javax.swing.JFrame {
         waitDiag.add(label, BorderLayout.CENTER);
         waitDiag.add(bar, BorderLayout.SOUTH);
 
+        final String[] firstError = {null};
         SwingWorker<int[], Integer> worker = new SwingWorker<>() {
             @Override
             protected int[] doInBackground() {
@@ -3359,17 +3371,13 @@ public class MainWindow extends javax.swing.JFrame {
                 for (int i = 0; i < itemsToSave.size(); i++) {
                     JellyfinItemMetadata metadata = itemsToSave.get(i);
                     try {
-                        int code = directSaver.postUpdate(metadata);
-                        if (code >= 200 && code < 300) {
-                            ok++;
-                        } else {
-                            failed++;
-                            Logger.getLogger(MainWindow.class.getName()).log(Level.WARNING,
-                                    "Unexpected HTTP status {0} while updating item {1}",
-                                    new Object[]{code, metadata.getId()});
-                        }
+                        directSaver.postUpdate(metadata);
+                        ok++;
                     } catch (Exception ex) {
                         failed++;
+                        if (firstError[0] == null) {
+                            firstError[0] = ex.getMessage();
+                        }
                         Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     publish(i + 1);
@@ -3391,11 +3399,15 @@ public class MainWindow extends javax.swing.JFrame {
                 waitDiag.dispose();
                 try {
                     int[] result = get();
+                    String msg = "Content update finished.\nUpdated: " + result[0] + "\nFailed: " + result[1];
+                    if (result[1] > 0 && firstError[0] != null) {
+                        msg += "\n\nFirst error:\n" + firstError[0];
+                    }
                     JOptionPane.showMessageDialog(
                             MainWindow.this,
-                            "Content update finished.\nUpdated: " + result[0] + "\nFailed: " + result[1],
+                            msg,
                             "Apply Changes",
-                            JOptionPane.INFORMATION_MESSAGE);
+                            result[1] > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(MainWindow.this, "Content update failed: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
                 } finally {
@@ -3493,8 +3505,8 @@ public class MainWindow extends javax.swing.JFrame {
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCanDownload(false);
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPreferredMetadataLanguage("pt-br");
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPreferredMetadataCountryCode("BR");
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setOfficialRating(jComboBox2.getSelectedItem().toString());
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setCustomRating(jComboBox1.getSelectedItem().toString());
+        instanceData.getFolders().getItems().get(nIndex).getMetadata().setOfficialRating(jComboBox2.getSelectedItem() == null ? "" : jComboBox2.getSelectedItem().toString());
+        instanceData.getFolders().getItems().get(nIndex).getMetadata().setCustomRating(jComboBox1.getSelectedItem() == null ? "" : jComboBox1.getSelectedItem().toString());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setOverview(jTextArea1.getText().trim());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCommunityRating(10);
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setProductionYear(productionYear);
@@ -3508,10 +3520,10 @@ public class MainWindow extends javax.swing.JFrame {
         ArrayList<JellyfinPeopleItem> newGroupPeople = new ArrayList();        
         for (int nI = 0; nI < jTable1.getModel().getRowCount(); nI++){
             JellyfinPeopleItem newPeople = new JellyfinPeopleItem();
-            newPeople.setId(jTable1.getModel().getValueAt(nI, 0).toString());
-            newPeople.setName(jTable1.getModel().getValueAt(nI, 1).toString());
-            newPeople.setType(jTable1.getModel().getValueAt(nI, 2).toString());
-            newPeople.setRole(jTable1.getModel().getValueAt(nI, 3).toString());            
+            newPeople.setId(SafeTableValues.asString(jTable1.getModel(), nI, 0));
+            newPeople.setName(SafeTableValues.asString(jTable1.getModel(), nI, 1));
+            newPeople.setType(SafeTableValues.asString(jTable1.getModel(), nI, 2));
+            newPeople.setRole(SafeTableValues.asString(jTable1.getModel(), nI, 3));            
             newGroupPeople.add(newPeople);            
         }
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPeople(newGroupPeople);
@@ -3526,8 +3538,8 @@ public class MainWindow extends javax.swing.JFrame {
         ArrayList<JellyfinGenreItem> newGenres = new ArrayList();        
         for (int nI = 0; nI < jTable2.getModel().getRowCount(); nI++){
             JellyfinGenreItem newGenre = new JellyfinGenreItem();
-            newGenre.setId(jTable2.getModel().getValueAt(nI, 0).toString());
-            newGenre.setName(jTable2.getModel().getValueAt(nI, 1).toString());            
+            newGenre.setId(SafeTableValues.asString(jTable2.getModel(), nI, 0));
+            newGenre.setName(SafeTableValues.asString(jTable2.getModel(), nI, 1));            
             newGenres.add(newGenre);            
         }
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setGenreItems(newGenres);
@@ -3541,8 +3553,8 @@ public class MainWindow extends javax.swing.JFrame {
         ArrayList<JellyfinStudioItem> newStudios = new ArrayList();        
         for (int nI = 0; nI < jTable3.getModel().getRowCount(); nI++){
             JellyfinStudioItem newStudio = new JellyfinStudioItem();
-            newStudio.setId(jTable3.getModel().getValueAt(nI, 0).toString());
-            newStudio.setName(jTable3.getModel().getValueAt(nI, 1).toString());            
+            newStudio.setId(SafeTableValues.asString(jTable3.getModel(), nI, 0));
+            newStudio.setName(SafeTableValues.asString(jTable3.getModel(), nI, 1));            
             newStudios.add(newStudio);            
         }
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setStudios(newStudios);
@@ -3555,9 +3567,7 @@ public class MainWindow extends javax.swing.JFrame {
         //4.2 - Add all Tags present in Tags Grid
         ArrayList<String> newTags = new ArrayList();        
         for (int nI = 0; nI < jTable4.getModel().getRowCount(); nI++){
-            String newTag = new String();
-            newTag = jTable4.getModel().getValueAt(nI, 0).toString();            
-            newTags.add(newTag);            
+            newTags.add(SafeTableValues.asString(jTable4.getModel(), nI, 0));            
         }
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setTags(newTags);
         
