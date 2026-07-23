@@ -3,9 +3,11 @@ package com.lariflix.jemm.forms;
 
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
 import com.lariflix.jemm.core.ConnectJellyfinAPI;
+import com.lariflix.jemm.core.SaveItemMetadataDirect;
 import com.lariflix.jemm.csv.JellyfinExportMetadata;
 import com.lariflix.jemm.csv.JellyfinImportMetadata;
 import com.lariflix.jemm.dtos.JellyfinItem;
+import com.lariflix.jemm.dtos.JellyfinItemMetadata;
 import com.lariflix.jemm.dtos.JellyfinItems;
 import com.lariflix.jemm.dtos.JellyfinFolder;
 import com.lariflix.jemm.dtos.JellyfinFolderMetadata;
@@ -3241,9 +3243,15 @@ public class MainWindow extends javax.swing.JFrame {
     private void saveFolder() throws java.text.ParseException {
         this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-        //Update values in main object, from GUI Objects
-        this.setFolderInstObjFromGUI(jList2.getSelectedIndex());
-        String folderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
+        final String folderID;
+        try {
+            //Update values in main object, from GUI Objects
+            this.setFolderInstObjFromGUI(jList2.getSelectedIndex());
+            folderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
+        } catch (RuntimeException ex) {
+            this.setCursor(Cursor.getDefaultCursor());
+            throw ex;
+        }
 
 
         // Create a new waiting dialog
@@ -3304,10 +3312,10 @@ public class MainWindow extends javax.swing.JFrame {
             return;
         }
 
-        final List<String> itemIdsToSave;
+        final List<JellyfinItemMetadata> itemsToSave;
         try {
             this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-            itemIdsToSave = this.setFolderItemsInstObjFromGUI(folderIndex, lAll);
+            itemsToSave = this.setFolderItemsInstObjFromGUI(folderIndex, lAll);
         } catch (RuntimeException ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
             JOptionPane.showMessageDialog(this, "Could not prepare changes: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
@@ -3316,12 +3324,13 @@ public class MainWindow extends javax.swing.JFrame {
             this.setCursor(Cursor.getDefaultCursor());
         }
 
-        if (itemIdsToSave == null || itemIdsToSave.isEmpty()) {
+        if (itemsToSave == null || itemsToSave.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No content items selected to update.", "Apply Changes", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        final String folderID = instanceData.getFolders().getItems().get(folderIndex).getId();
+        final SaveItemMetadataDirect directSaver =
+                new SaveItemMetadataDirect(connectAPI.getcBaseURL(), connectAPI.getcTokenApi());
 
         JDialog waitDiag = new JDialog(this, "Please wait...", true);
         waitDiag.setLayout(new BorderLayout());
@@ -3334,7 +3343,7 @@ public class MainWindow extends javax.swing.JFrame {
         labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon());
         JLabel label = new JLabel("Saving items and metadata changes...", JLabel.CENTER);
-        JProgressBar bar = new JProgressBar(0, Math.max(1, itemIdsToSave.size()));
+        JProgressBar bar = new JProgressBar(0, Math.max(1, itemsToSave.size()));
         bar.setStringPainted(true);
         bar.setValue(0);
 
@@ -3347,14 +3356,17 @@ public class MainWindow extends javax.swing.JFrame {
             protected int[] doInBackground() {
                 int ok = 0;
                 int failed = 0;
-                for (int i = 0; i < itemIdsToSave.size(); i++) {
-                    String itemId = itemIdsToSave.get(i);
+                for (int i = 0; i < itemsToSave.size(); i++) {
+                    JellyfinItemMetadata metadata = itemsToSave.get(i);
                     try {
-                        int code = connectAPI.postUpdate(folderID, itemId, instanceData, jemmParameters.JUST_ITEMS);
+                        int code = directSaver.postUpdate(metadata);
                         if (code >= 200 && code < 300) {
                             ok++;
                         } else {
                             failed++;
+                            Logger.getLogger(MainWindow.class.getName()).log(Level.WARNING,
+                                    "Unexpected HTTP status {0} while updating item {1}",
+                                    new Object[]{code, metadata.getId()});
                         }
                     } catch (Exception ex) {
                         failed++;
@@ -3370,7 +3382,7 @@ public class MainWindow extends javax.swing.JFrame {
                 if (!chunks.isEmpty()) {
                     int value = chunks.get(chunks.size() - 1);
                     bar.setValue(value);
-                    label.setText("Saving item " + value + "/" + itemIdsToSave.size() + "...");
+                    label.setText("Saving item " + value + "/" + itemsToSave.size() + "...");
                 }
             }
 
@@ -3386,6 +3398,8 @@ public class MainWindow extends javax.swing.JFrame {
                             JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(MainWindow.this, "Content update failed: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    MainWindow.this.setFieldsValues();
                 }
             }
         };
@@ -3454,7 +3468,15 @@ public class MainWindow extends javax.swing.JFrame {
         
         TransformDateFormat transforDate = new TransformDateFormat();
         
-        int productionYear = Integer.parseInt(jTextField8.getText().trim().substring(6,10));
+        int productionYear = 0;
+        try {
+            String premiere = jTextField8.getText() == null ? "" : jTextField8.getText().trim();
+            if (premiere.length() >= 10) {
+                productionYear = Integer.parseInt(premiere.substring(6, 10));
+            }
+        } catch (NumberFormatException ex) {
+            productionYear = 0;
+        }
         
         
         instanceData.getFolders().getItems().get(nIndex).setName(jTextField2.getText().trim());
@@ -3549,8 +3571,8 @@ public class MainWindow extends javax.swing.JFrame {
      *                          false = Library Content Apply (selected rows only, scalars from table + list merge)
      * @return item IDs that should be POSTed
      */
-    private List<String> setFolderItemsInstObjFromGUI(int nIndex, boolean lUpdateFromFolder) throws java.text.ParseException {
-        List<String> savedIds = new ArrayList<>();
+    private List<JellyfinItemMetadata> setFolderItemsInstObjFromGUI(int nIndex, boolean lUpdateFromFolder) throws java.text.ParseException {
+        List<JellyfinItemMetadata> savedItems = new ArrayList<>();
         TransformDateFormat transformDate = new TransformDateFormat();
         int contentSize = instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().size();
 
@@ -3568,7 +3590,7 @@ public class MainWindow extends javax.swing.JFrame {
                 if (lead >= 0) {
                     rowsToProcess = new int[]{lead};
                 } else {
-                    return savedIds;
+                    return savedItems;
                 }
             }
         }
@@ -3629,10 +3651,10 @@ public class MainWindow extends javax.swing.JFrame {
             item.getItemMetadata().setStudios(MetadataListMerge.mergeStudios(item.getItemMetadata().getStudios(), sourceStudios));
             item.getItemMetadata().setTags(MetadataListMerge.mergeTags(item.getItemMetadata().getTags(), sourceTags));
 
-            savedIds.add(item.getItemMetadata().getId());
+            savedItems.add(item.getItemMetadata());
         }
 
-        return savedIds;
+        return savedItems;
     }
 
     private void applyFolderScalarsToContentTable() {
@@ -3720,11 +3742,31 @@ public class MainWindow extends javax.swing.JFrame {
     }
 
     private void openAutoTagsDialog() {
-        new AutoTagsDialog(this, connectAPI, instanceData, jList2.getSelectedIndices()).setVisible(true);
+        int[] selected = jList2.getSelectedIndices();
+        if (selected == null || selected.length == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Select one or more libraries in the left \"Libraries\" list first.\n"
+                    + "Auto Tags always works on the selected libraries (including their subfolders).",
+                    "Auto Tags", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new AutoTagsDialog(this, connectAPI, instanceData, selected).setVisible(true);
+        // Refresh the currently displayed folder so newly written tags become visible.
+        this.setFieldsValues();
     }
 
     private void openMetadataCleanerDialog() {
-        new MetadataCleanerDialog(this, connectAPI, instanceData, jList2.getSelectedIndices()).setVisible(true);
+        int[] selected = jList2.getSelectedIndices();
+        if (selected == null || selected.length == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Select one or more libraries in the left \"Libraries\" list first.\n"
+                    + "Metadata Cleaner always works on the selected libraries (including their subfolders).",
+                    "Metadata Cleaner", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new MetadataCleanerDialog(this, connectAPI, instanceData, selected).setVisible(true);
+        // Refresh the currently displayed folder so cleared metadata is reflected in the UI.
+        this.setFieldsValues();
     }
 
     private String completeEpisodeName(String text, int nJ) {
