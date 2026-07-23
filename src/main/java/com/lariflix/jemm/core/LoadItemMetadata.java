@@ -200,7 +200,8 @@ public class LoadItemMetadata {
         
         urlWithApiKey = this.getJellyfinInstanceUrl().concat("Users/").concat(this.getcUserAdminID());
         urlWithApiKey = urlWithApiKey.concat("/Items/").concat(this.getcItemID());
-        urlWithApiKey = urlWithApiKey.concat("?ApiKey=").concat(this.apiToken);
+        urlWithApiKey = urlWithApiKey.concat("?Fields=MediaSources,MediaStreams,Path,Overview,People,Genres,Tags,Studios");
+        urlWithApiKey = urlWithApiKey.concat("&ApiKey=").concat(this.apiToken);
         
         return urlWithApiKey;
     }

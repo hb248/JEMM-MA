@@ -19,6 +19,8 @@ import com.lariflix.jemm.utils.JellyfinReportTypes;
 import com.lariflix.jemm.utils.JellyfinResponseStandard;
 import com.lariflix.jemm.utils.JellyfinUtilFunctions;
 import com.lariflix.jemm.utils.JemmVersion;
+import com.lariflix.jemm.utils.MetadataListMerge;
+import com.lariflix.jemm.utils.SafeTableValues;
 import com.lariflix.jemm.utils.TransformDateFormat;
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -29,6 +31,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
@@ -36,6 +39,7 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 import javax.swing.JTable;
+import javax.swing.ListSelectionModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
@@ -48,6 +52,7 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
@@ -95,6 +100,16 @@ public class MainWindow extends javax.swing.JFrame {
      */
     public MainWindow() {
         initComponents();
+        jList2.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        jTable5.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+
+        JMenuItem autoTagsMenuItem = new JMenuItem("Auto Tags...");
+        autoTagsMenuItem.addActionListener(evt -> openAutoTagsDialog());
+        jMenu10.add(autoTagsMenuItem);
+
+        JMenuItem metadataCleanerMenuItem = new JMenuItem("Metadata Cleaner...");
+        metadataCleanerMenuItem.addActionListener(evt -> openMetadataCleanerDialog());
+        jMenu10.add(metadataCleanerMenuItem);
     }
 
     /**
@@ -1545,8 +1560,9 @@ public class MainWindow extends javax.swing.JFrame {
             //Show confirmation Dialog
             String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' was succesfully updated.");
             new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
-        } catch (java.text.ParseException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Library update failed: " + ex.getMessage(), "Apply for Library", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_jButton2ActionPerformed
 
@@ -1558,8 +1574,9 @@ public class MainWindow extends javax.swing.JFrame {
             //Show confirmation Dialog
             String cMsg = "The library item '".concat(jTextField2.getText().trim()).concat("' and all their content was succesfully updated.");
             new JellyfinUtilFunctions().showMessage("Library succesfully updated", cMsg);
-        } catch (java.text.ParseException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Library and content update failed: " + ex.getMessage(), "Apply for Library and Content", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_jButton3ActionPerformed
 
@@ -1568,7 +1585,9 @@ public class MainWindow extends javax.swing.JFrame {
     }//GEN-LAST:event_jTextField6ActionPerformed
 
     private void jList2ValueChanged(javax.swing.event.ListSelectionEvent evt) {//GEN-FIRST:event_jList2ValueChanged
-        this.setFieldsValues();
+        if (!evt.getValueIsAdjusting()) {
+            this.setFieldsValues();
+        }
     }//GEN-LAST:event_jList2ValueChanged
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
@@ -1635,8 +1654,9 @@ public class MainWindow extends javax.swing.JFrame {
     private void jButton20ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton20ActionPerformed
         try {
             this.saveContent(false);
-        } catch (java.text.ParseException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Apply Changes failed: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_jButton20ActionPerformed
 
@@ -2747,7 +2767,11 @@ public class MainWindow extends javax.swing.JFrame {
         //Add new People on People Grid or People Content Grid
         if (nFrom == from_folder_tab) {
             if (!newPeopleInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable1.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable1.getModel();
+                if (MetadataListMerge.tableModelContainsPeople(model, newPeopleInserted.getId(), newPeopleInserted.getName(), newPeopleInserted.getType())) {
+                    JOptionPane.showMessageDialog(this, "This person is already in the list.", "People", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newPeopleInserted.getId(), newPeopleInserted.getName(), newPeopleInserted.getType(), newPeopleInserted.getRole() };
                 model.addRow(row);
                 jTable1.setModel(model);
@@ -2757,7 +2781,11 @@ public class MainWindow extends javax.swing.JFrame {
             }
         } else if (nFrom == from_content_tab) {
             if (!newPeopleInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable6.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable6.getModel();
+                if (MetadataListMerge.tableModelContainsPeople(model, newPeopleInserted.getId(), newPeopleInserted.getName(), newPeopleInserted.getType())) {
+                    JOptionPane.showMessageDialog(this, "This person is already in the list.", "People", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newPeopleInserted.getId(), newPeopleInserted.getName(), newPeopleInserted.getType(), newPeopleInserted.getRole() };
                 model.addRow(row);
                 jTable6.setModel(model);
@@ -2896,7 +2924,11 @@ public class MainWindow extends javax.swing.JFrame {
         //Add new Genre on Genre Grid or Genre Content Grid
         if (nFrom == from_folder_tab) {
             if (! newGenreInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable2.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable2.getModel();
+                if (MetadataListMerge.tableModelContainsIdOrName(model, 0, 1, newGenreInserted.getId(), newGenreInserted.getName())) {
+                    JOptionPane.showMessageDialog(this, "This genre is already in the list.", "Genres", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newGenreInserted.getId(), newGenreInserted.getName() };
                 model.addRow(row);
                 jTable2.setModel(model);
@@ -2906,7 +2938,11 @@ public class MainWindow extends javax.swing.JFrame {
             }
         } else if (nFrom == from_content_tab) {
             if (!newGenreInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable7.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable7.getModel();
+                if (MetadataListMerge.tableModelContainsIdOrName(model, 0, 1, newGenreInserted.getId(), newGenreInserted.getName())) {
+                    JOptionPane.showMessageDialog(this, "This genre is already in the list.", "Genres", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newGenreInserted.getId(), newGenreInserted.getName() };
                 model.addRow(row);
                 jTable7.setModel(model);
@@ -2995,7 +3031,11 @@ public class MainWindow extends javax.swing.JFrame {
         //Add new Studio on Genre Grid or Studio Content Grid
         if (nFrom == from_folder_tab) {
             if (! newStudioInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable3.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable3.getModel();
+                if (MetadataListMerge.tableModelContainsIdOrName(model, 0, 1, newStudioInserted.getId(), newStudioInserted.getName())) {
+                    JOptionPane.showMessageDialog(this, "This studio is already in the list.", "Studios", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newStudioInserted.getId(), newStudioInserted.getName() };
                 model.addRow(row);
                 jTable3.setModel(model);
@@ -3005,7 +3045,11 @@ public class MainWindow extends javax.swing.JFrame {
             }
         } else if (nFrom == from_content_tab) {
             if (!newStudioInserted.getName().trim().isEmpty()){
-                DefaultTableModel model = (DefaultTableModel) jTable8.getModel();        
+                DefaultTableModel model = (DefaultTableModel) jTable8.getModel();
+                if (MetadataListMerge.tableModelContainsIdOrName(model, 0, 1, newStudioInserted.getId(), newStudioInserted.getName())) {
+                    JOptionPane.showMessageDialog(this, "This studio is already in the list.", "Studios", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
                 Object[] row = { newStudioInserted.getId(), newStudioInserted.getName() };
                 model.addRow(row);
                 jTable8.setModel(model);
@@ -3096,7 +3140,11 @@ public class MainWindow extends javax.swing.JFrame {
         
             if (nFrom == from_folder_tab) {
                 if (! newTagInserted.trim().isEmpty()){
-                    DefaultTableModel model = (DefaultTableModel) jTable4.getModel();        
+                    DefaultTableModel model = (DefaultTableModel) jTable4.getModel();
+                    if (MetadataListMerge.tableModelContainsTag(model, 0, newTagInserted)) {
+                        JOptionPane.showMessageDialog(this, "This tag is already in the list.", "Tags", JOptionPane.INFORMATION_MESSAGE);
+                        return;
+                    }
                     Object[] row = { newTagInserted };
                     model.addRow(row);
                     jTable4.setModel(model);
@@ -3106,7 +3154,11 @@ public class MainWindow extends javax.swing.JFrame {
                 }
             } else if (nFrom == from_content_tab) {
                 if (!newTagInserted.trim().isEmpty()){
-                    DefaultTableModel model = (DefaultTableModel) jTable9.getModel();        
+                    DefaultTableModel model = (DefaultTableModel) jTable9.getModel();
+                    if (MetadataListMerge.tableModelContainsTag(model, 0, newTagInserted)) {
+                        JOptionPane.showMessageDialog(this, "This tag is already in the list.", "Tags", JOptionPane.INFORMATION_MESSAGE);
+                        return;
+                    }
                     Object[] row = { newTagInserted };
                     model.addRow(row);
                     jTable9.setModel(model);
@@ -3247,61 +3299,98 @@ public class MainWindow extends javax.swing.JFrame {
      */
     private void saveContent(boolean lAll) throws java.text.ParseException {
         int folderIndex = jList2.getSelectedIndex();
-        this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        this.setFolderItemsInstObjFromGUI(folderIndex,lAll);
+        if (folderIndex < 0) {
+            JOptionPane.showMessageDialog(this, "Select a library first.", "Apply Changes", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        // Create a new waiting dialog
+        final List<String> itemIdsToSave;
+        try {
+            this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            itemIdsToSave = this.setFolderItemsInstObjFromGUI(folderIndex, lAll);
+        } catch (RuntimeException ex) {
+            Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(this, "Could not prepare changes: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
+            return;
+        } finally {
+            this.setCursor(Cursor.getDefaultCursor());
+        }
+
+        if (itemIdsToSave == null || itemIdsToSave.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No content items selected to update.", "Apply Changes", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        final String folderID = instanceData.getFolders().getItems().get(folderIndex).getId();
+
         JDialog waitDiag = new JDialog(this, "Please wait...", true);
         waitDiag.setLayout(new BorderLayout());
-        waitDiag.setSize(600, 110);
+        waitDiag.setSize(600, 140);
         waitDiag.setResizable(false);
         waitDiag.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         waitDiag.setLocationRelativeTo(this);
 
-
         JLabel labelIco = new JLabel();
         labelIco.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon()); // NOI18N
-        JLabel label = new JLabel("Saving Itens and Metadata changes...", JLabel.CENTER);
+        labelIco.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon());
+        JLabel label = new JLabel("Saving items and metadata changes...", JLabel.CENTER);
+        JProgressBar bar = new JProgressBar(0, Math.max(1, itemIdsToSave.size()));
+        bar.setStringPainted(true);
+        bar.setValue(0);
 
-        JProgressBar bar = new JProgressBar();
-        bar.setIndeterminate(true);
-
-        waitDiag.add(labelIco,BorderLayout.NORTH);
+        waitDiag.add(labelIco, BorderLayout.NORTH);
         waitDiag.add(label, BorderLayout.CENTER);
         waitDiag.add(bar, BorderLayout.SOUTH);
 
-
-        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+        SwingWorker<int[], Integer> worker = new SwingWorker<>() {
             @Override
-            protected Void doInBackground() throws Exception {
-
-                //Post Updates on Jellyfin instance
-                try {
-
-                    for (int nI = 0; nI < instanceData.getFolders().getItems().get(folderIndex).getFolderContent().getItems().size(); nI++ ){
-                        String cFolderID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getId();
-                        String cItemID = instanceData.getFolders().getItems().get(jList2.getSelectedIndex()).getFolderContent().getItems().get(nI).getId();
-
-                        connectAPI.postUpdate(cFolderID, cItemID, instanceData, jemmParameters.JUST_ITEMS);
+            protected int[] doInBackground() {
+                int ok = 0;
+                int failed = 0;
+                for (int i = 0; i < itemIdsToSave.size(); i++) {
+                    String itemId = itemIdsToSave.get(i);
+                    try {
+                        int code = connectAPI.postUpdate(folderID, itemId, instanceData, jemmParameters.JUST_ITEMS);
+                        if (code >= 200 && code < 300) {
+                            ok++;
+                        } else {
+                            failed++;
+                        }
+                    } catch (Exception ex) {
+                        failed++;
+                        Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                } catch (IOException | ParseException ex) {
-                    Logger.getLogger(MainWindow.class.getName()).log(Level.SEVERE, null, ex);
+                    publish(i + 1);
                 }
-                return null;
+                return new int[]{ok, failed};
+            }
+
+            @Override
+            protected void process(List<Integer> chunks) {
+                if (!chunks.isEmpty()) {
+                    int value = chunks.get(chunks.size() - 1);
+                    bar.setValue(value);
+                    label.setText("Saving item " + value + "/" + itemIdsToSave.size() + "...");
+                }
             }
 
             @Override
             protected void done() {
                 waitDiag.dispose();
+                try {
+                    int[] result = get();
+                    JOptionPane.showMessageDialog(
+                            MainWindow.this,
+                            "Content update finished.\nUpdated: " + result[0] + "\nFailed: " + result[1],
+                            "Apply Changes",
+                            JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(MainWindow.this, "Content update failed: " + ex.getMessage(), "Apply Changes", JOptionPane.ERROR_MESSAGE);
+                }
             }
         };
         worker.execute();
         waitDiag.setVisible(true);
-
-
-        this.setCursor(Cursor.getDefaultCursor());
     }
 
     /**
@@ -3453,260 +3542,190 @@ public class MainWindow extends javax.swing.JFrame {
     }
     
     /**
-     * This method is used to set the instance object from the GUI for a specific folder's items.
-     * It retrieves the data from the GUI and updates the instance object accordingly.
-     * 
-     * @param nIndex An integer that represents the index of the folder in the instance object.
-     * @param lUpdateFromFolder A boolean that determines whether the content should be updated from the folder.
-     * @throws java.text.ParseException If parsing the date fails.
-     * @author Cesar Bianchi
-     * @since 1.0
-     * @see TransformDateFormat#getFullDateFromSimple(String)
-     * @see JellyfinPeopleItem
-     * @see JellyfinGenreItem
-     * @see JellyfinStudioItem
+     * Applies GUI metadata to folder content items.
+     *
+     * @param nIndex folder index
+     * @param lUpdateFromFolder true = Library Metadata "and Content" (all items, scalars from folder + list merge);
+     *                          false = Library Content Apply (selected rows only, scalars from table + list merge)
+     * @return item IDs that should be POSTed
      */
-    private void setFolderItemsInstObjFromGUI(int nIndex, boolean lUpdateFromFolder) throws java.text.ParseException {
-        int nSize = jTable5.getModel().getRowCount();
-        TransformDateFormat transforDate = new TransformDateFormat();
-         
-        //For each item present in Content Grid, add in Instance Object
-        for (int nI = 0;nI < nSize; nI++){
-            
-            String cID1 = instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().getId();
-            String cID2 = jTable5.getModel().getValueAt(nI, 0).toString();
-            
-            if (cID1.equals(cID2)){
-                
-                if (lUpdateFromFolder){
-                    this.replaceItensContentFromFolder();
-                }
-                
-                //Name
-                String cName = jTable5.getModel().getValueAt(nI, 1).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setName(cName);
+    private List<String> setFolderItemsInstObjFromGUI(int nIndex, boolean lUpdateFromFolder) throws java.text.ParseException {
+        List<String> savedIds = new ArrayList<>();
+        TransformDateFormat transformDate = new TransformDateFormat();
+        int contentSize = instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().size();
 
-                //Original Title
-                String cOriginalTitle = jTable5.getModel().getValueAt(nI, 2).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setOriginalTitle(cOriginalTitle);
-
-                //Sort Name
-                String cSortName = jTable5.getModel().getValueAt(nI, 3).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setSortName(cSortName);
-
-                //Sort Name
-                Date createdDate = transforDate.getFullDateFromSimple(jTable5.getModel().getValueAt(nI, 4).toString());
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setDateCreated(createdDate);
-
-                //Premiere Date
-                Date premiereDate = transforDate.getFullDateFromSimple(jTable5.getModel().getValueAt(nI, 5 ).toString());
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setPremiereDate(premiereDate);
-
-                //Preferred Metadata Language
-                String preferedMetadataLang = jTable5.getModel().getValueAt(nI, 6 ).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setPreferredMetadataLanguage(preferedMetadataLang);
-
-                //Preferred Metadata Country Code
-                String preferedMetadataCC = jTable5.getModel().getValueAt(nI, 7 ).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setPreferredMetadataCountryCode(preferedMetadataCC);
-                
-                //Critic Rating
-                int criticRating = Integer.parseInt(jTable5.getModel().getValueAt(nI, 8 ).toString());
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setCriticRating(criticRating);
-                
-                //Community Rating
-                int communityRating = Integer.parseInt(jTable5.getModel().getValueAt(nI, 9 ).toString());
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setCommunityRating(communityRating);
-                
-                //Oficial Rating
-                String oficialRating = jTable5.getModel().getValueAt(nI, 10 ).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setOfficialRating(oficialRating);
-                
-                //Custom Rating
-                String customRating = jTable5.getModel().getValueAt(nI, 11 ).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setCustomRating(customRating);
-                
-                //Production Year
-                int productionYear = Integer.parseInt(jTable5.getModel().getValueAt(nI, 12 ).toString());
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setProductionYear(productionYear);
-                
-                //Overview 
-                String overview = jTable5.getModel().getValueAt(nI, 14 ).toString();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setOverview(overview);
-                
-                //1 - Add People
-                //1.1 - Clean existing People
-                ArrayList<JellyfinPeopleItem> peopleEmpty = new ArrayList();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setPeople(peopleEmpty);
-
-                //1.2 - Add all people present in People Grid
-                ArrayList<JellyfinPeopleItem> newGroupPeople = new ArrayList();        
-                for (int nJ = 0; nJ < jTable6.getModel().getRowCount(); nJ++){
-                    JellyfinPeopleItem newPeople = new JellyfinPeopleItem();
-                    newPeople.setId(jTable6.getModel().getValueAt(nJ, 0).toString());
-                    newPeople.setName(jTable6.getModel().getValueAt(nJ, 1).toString());
-                    newPeople.setType(jTable6.getModel().getValueAt(nJ, 2).toString());
-                    newPeople.setRole(jTable6.getModel().getValueAt(nJ, 3).toString());
-
-                    newGroupPeople.add(newPeople);
-
-                }
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setPeople(newGroupPeople);
-
-                //2 - Add Genres
-                //2.1 - Clean existing Genres
-                ArrayList<JellyfinGenreItem> genreEmpty = new ArrayList();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setGenreItems(genreEmpty);
-                
-                //2.2 - Add all Genres present in Genres Grid
-                ArrayList<JellyfinGenreItem> newGenres = new ArrayList();        
-                for (int nJ = 0; nJ < jTable7.getModel().getRowCount(); nJ++){
-                    JellyfinGenreItem newGenre = new JellyfinGenreItem();
-                    newGenre.setId(jTable7.getModel().getValueAt(nJ, 0).toString());
-                    newGenre.setName(jTable7.getModel().getValueAt(nJ, 1).toString());            
-                    newGenres.add(newGenre);            
-                }
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setGenreItems(newGenres);
-
-                
-                //3 - Add Studios
-                //3.1 - Clean existing Studios
-                ArrayList<JellyfinStudioItem> studiosEmpty = new ArrayList();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setStudios(studiosEmpty);
-
-                //3.2 - Add all Studios present in Studios Grid
-                ArrayList<JellyfinStudioItem> newStudios = new ArrayList();        
-                for (int nJ = 0; nJ < jTable8.getModel().getRowCount(); nJ++){
-                    JellyfinStudioItem newStudio = new JellyfinStudioItem();
-                    newStudio.setId(jTable8.getModel().getValueAt(nJ, 0).toString());
-                    newStudio.setName(jTable8.getModel().getValueAt(nJ, 1).toString());            
-                    newStudios.add(newStudio);            
-                }
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setStudios(newStudios);
-                
-                
-                //4 - Add Tags
-                //4.1 - Clean existing Tags
-                ArrayList<String> emptyTags = new ArrayList();
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setTags(emptyTags);
-                
-                //4.2 - Add all Tags present in Tags Grid
-                ArrayList<String> newTags = new ArrayList();        
-                for (int nJ = 0; nJ < jTable9.getModel().getRowCount(); nJ++){
-                    String newTag = jTable9.getModel().getValueAt(nJ, 0).toString();  
-                    newTags.add(newTag);
-                }
-                instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(nI).getItemMetadata().setTags(newTags);
-                
+        int[] rowsToProcess;
+        if (lUpdateFromFolder) {
+            rowsToProcess = new int[jTable5.getModel().getRowCount()];
+            for (int i = 0; i < rowsToProcess.length; i++) {
+                rowsToProcess[i] = i;
             }
-            
+            applyFolderScalarsToContentTable();
+        } else {
+            rowsToProcess = jTable5.getSelectedRows();
+            if (rowsToProcess == null || rowsToProcess.length == 0) {
+                int lead = jTable5.getSelectedRow();
+                if (lead >= 0) {
+                    rowsToProcess = new int[]{lead};
+                } else {
+                    return savedIds;
+                }
+            }
         }
-        
-        
+
+        ArrayList<JellyfinPeopleItem> sourcePeople = lUpdateFromFolder
+                ? peopleFromTable(jTable1.getModel())
+                : peopleFromTable(jTable6.getModel());
+        ArrayList<JellyfinGenreItem> sourceGenres = lUpdateFromFolder
+                ? genresFromTable(jTable2.getModel())
+                : genresFromTable(jTable7.getModel());
+        ArrayList<JellyfinStudioItem> sourceStudios = lUpdateFromFolder
+                ? studiosFromTable(jTable3.getModel())
+                : studiosFromTable(jTable8.getModel());
+        ArrayList<String> sourceTags = lUpdateFromFolder
+                ? tagsFromTable(jTable4.getModel())
+                : tagsFromTable(jTable9.getModel());
+
+        for (int row : rowsToProcess) {
+            if (row < 0 || row >= jTable5.getModel().getRowCount() || row >= contentSize) {
+                continue;
+            }
+
+            String tableId = SafeTableValues.asString(jTable5.getModel(), row, 0);
+            JellyfinItem item = instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems().get(row);
+            if (item.getItemMetadata() == null || item.getItemMetadata().getId() == null) {
+                continue;
+            }
+            if (!item.getItemMetadata().getId().equals(tableId)) {
+                // Fallback: find by id
+                item = null;
+                for (JellyfinItem candidate : instanceData.getFolders().getItems().get(nIndex).getFolderContent().getItems()) {
+                    if (candidate.getItemMetadata() != null && tableId.equals(candidate.getItemMetadata().getId())) {
+                        item = candidate;
+                        break;
+                    }
+                }
+                if (item == null) {
+                    continue;
+                }
+            }
+
+            item.getItemMetadata().setName(SafeTableValues.asString(jTable5.getModel(), row, 1));
+            item.getItemMetadata().setOriginalTitle(SafeTableValues.asString(jTable5.getModel(), row, 2));
+            item.getItemMetadata().setSortName(SafeTableValues.asString(jTable5.getModel(), row, 3));
+            item.getItemMetadata().setDateCreated(transformDate.getFullDateFromSimple(SafeTableValues.asString(jTable5.getModel(), row, 4)));
+            item.getItemMetadata().setPremiereDate(transformDate.getFullDateFromSimple(SafeTableValues.asString(jTable5.getModel(), row, 5)));
+            item.getItemMetadata().setPreferredMetadataLanguage(SafeTableValues.asString(jTable5.getModel(), row, 6));
+            item.getItemMetadata().setPreferredMetadataCountryCode(SafeTableValues.asString(jTable5.getModel(), row, 7));
+            item.getItemMetadata().setCriticRating(SafeTableValues.asInt(jTable5.getModel(), row, 8, 0));
+            item.getItemMetadata().setCommunityRating(SafeTableValues.asInt(jTable5.getModel(), row, 9, 0));
+            item.getItemMetadata().setOfficialRating(SafeTableValues.asString(jTable5.getModel(), row, 10));
+            item.getItemMetadata().setCustomRating(SafeTableValues.asString(jTable5.getModel(), row, 11));
+            item.getItemMetadata().setProductionYear(SafeTableValues.asInt(jTable5.getModel(), row, 12, 0));
+            item.getItemMetadata().setOverview(SafeTableValues.asString(jTable5.getModel(), row, 14));
+
+            item.getItemMetadata().setPeople(MetadataListMerge.mergePeople(item.getItemMetadata().getPeople(), sourcePeople));
+            item.getItemMetadata().setGenreItems(MetadataListMerge.mergeGenres(item.getItemMetadata().getGenreItems(), sourceGenres));
+            item.getItemMetadata().setStudios(MetadataListMerge.mergeStudios(item.getItemMetadata().getStudios(), sourceStudios));
+            item.getItemMetadata().setTags(MetadataListMerge.mergeTags(item.getItemMetadata().getTags(), sourceTags));
+
+            savedIds.add(item.getItemMetadata().getId());
+        }
+
+        return savedIds;
+    }
+
+    private void applyFolderScalarsToContentTable() {
+        int nSize = jTable5.getModel().getRowCount();
+        String createdDate = jTextField3.getText() == null ? "" : jTextField3.getText().trim();
+        String officialRating = jComboBox2.getSelectedItem() == null ? "" : jComboBox2.getSelectedItem().toString();
+        String customRating = jComboBox1.getSelectedItem() == null ? "" : jComboBox1.getSelectedItem().toString();
+        String overview = jTextArea1.getText() == null ? "" : jTextArea1.getText();
+        int productionYear = 0;
+        try {
+            String premiere = jTextField8.getText() == null ? "" : jTextField8.getText().trim();
+            if (premiere.length() >= 10) {
+                productionYear = Integer.parseInt(premiere.substring(6, 10));
+            }
+        } catch (Exception ignored) {
+            productionYear = 0;
+        }
+
+        for (int nI = 0; nI < nSize; nI++) {
+            jTable5.getModel().setValueAt(completeEpisodeName(jTextField2.getText(), nI), nI, 1);
+            jTable5.getModel().setValueAt(completeEpisodeName(jTextField7.getText(), nI), nI, 2);
+            jTable5.getModel().setValueAt(completeEpisodeName(jTextField6.getText(), nI), nI, 3);
+            jTable5.getModel().setValueAt(createdDate, nI, 4);
+            jTable5.getModel().setValueAt(createdDate, nI, 5);
+            jTable5.getModel().setValueAt("pt-br", nI, 6);
+            jTable5.getModel().setValueAt("BR", nI, 7);
+            jTable5.getModel().setValueAt(10, nI, 8);
+            jTable5.getModel().setValueAt(10, nI, 9);
+            jTable5.getModel().setValueAt(officialRating, nI, 10);
+            jTable5.getModel().setValueAt(customRating, nI, 11);
+            jTable5.getModel().setValueAt(productionYear, nI, 12);
+            jTable5.getModel().setValueAt(overview, nI, 14);
+        }
+    }
+
+    private ArrayList<JellyfinPeopleItem> peopleFromTable(javax.swing.table.TableModel model) {
+        ArrayList<JellyfinPeopleItem> people = new ArrayList<>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            JellyfinPeopleItem person = new JellyfinPeopleItem();
+            person.setId(SafeTableValues.asString(model, i, 0));
+            person.setName(SafeTableValues.asString(model, i, 1));
+            person.setType(SafeTableValues.asString(model, i, 2));
+            person.setRole(SafeTableValues.asString(model, i, 3));
+            people.add(person);
+        }
+        return MetadataListMerge.dedupePeople(people);
+    }
+
+    private ArrayList<JellyfinGenreItem> genresFromTable(javax.swing.table.TableModel model) {
+        ArrayList<JellyfinGenreItem> genres = new ArrayList<>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            JellyfinGenreItem genre = new JellyfinGenreItem();
+            genre.setId(SafeTableValues.asString(model, i, 0));
+            genre.setName(SafeTableValues.asString(model, i, 1));
+            genres.add(genre);
+        }
+        return MetadataListMerge.dedupeGenres(genres);
+    }
+
+    private ArrayList<JellyfinStudioItem> studiosFromTable(javax.swing.table.TableModel model) {
+        ArrayList<JellyfinStudioItem> studios = new ArrayList<>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            JellyfinStudioItem studio = new JellyfinStudioItem();
+            studio.setId(SafeTableValues.asString(model, i, 0));
+            studio.setName(SafeTableValues.asString(model, i, 1));
+            studios.add(studio);
+        }
+        return MetadataListMerge.dedupeStudios(studios);
+    }
+
+    private ArrayList<String> tagsFromTable(javax.swing.table.TableModel model) {
+        ArrayList<String> tags = new ArrayList<>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            tags.add(SafeTableValues.asString(model, i, 0));
+        }
+        return MetadataListMerge.dedupeTags(tags);
     }
 
     /**
-     * This method is used to replace the items content from a specific folder.
-     * It retrieves the data from the GUI and updates the instance object accordingly.
-     * 
-     * @throws java.text.ParseException If parsing the date fails.
-     * @author Cesar Bianchi
-     * @since 1.0
-     * @see TransformDateFormat#getFullDateFromSimple(String)
-     * @see DefaultTableModel
+     * @deprecated Replaced by applyFolderScalarsToContentTable + merge lists.
      */
     private void replaceItensContentFromFolder() throws java.text.ParseException {
-        int nCount = 0;
-        String newTitle = new String();        
-        int nSize = jTable5.getModel().getRowCount();
-        TransformDateFormat transforDate = new TransformDateFormat();
-         
-        //For each item present in Content Grid, update some fields from Folder Tab
-        for (int nI = 0;nI < nSize; nI++){
-            
-            //Name
-            String cName = this.completeEpisodeName(jTextField2.getText(),nI);
-            jTable5.getModel().setValueAt(cName, nI, 1);
-            
-            //Original Title
-            String cOriginalTitle = this.completeEpisodeName(jTextField7.getText(),nI);
-            jTable5.getModel().setValueAt(cOriginalTitle, nI, 2);
-            
-            //Sort Name
-            String cSortName =  this.completeEpisodeName(jTextField6.getText(),nI);
-            jTable5.getModel().setValueAt(cSortName, nI, 3);
-
-            //Created Date
-            String createdDate = jTextField3.getText();
-            jTable5.getModel().setValueAt(createdDate, nI, 4);
-                
-            //Premiere Date
-            jTable5.getModel().setValueAt(createdDate,nI, 5 );      
-            
-            //Preferred Metadata Language
-            String preferedMetadataLang = "pt-br";
-            jTable5.getModel().setValueAt(preferedMetadataLang, nI, 6 );
-            
-            //Preferred Metadata Country Code
-            String preferedMetadataCC = "BR";
-            jTable5.getModel().setValueAt(preferedMetadataCC, nI, 7 );
-                
-            //Critic Rating
-            int criticRating = 10;
-            jTable5.getModel().setValueAt(criticRating, nI, 8 );
-                
-            //Community Rating
-            int communityRating = 10;
-            jTable5.getModel().setValueAt(communityRating, nI, 9 );
-                
-            //Oficial Rating
-            String oficialRating = jComboBox2.getSelectedItem().toString();
-            jTable5.getModel().setValueAt(oficialRating, nI, 10 );
-                
-            //Custom Rating
-            String customRating = jComboBox1.getSelectedItem().toString();
-            jTable5.getModel().setValueAt(customRating, nI, 11 );
-                
-            //Production Year
-            int productionYear = Integer.parseInt(jTextField8.getText().trim().substring(6,10));
-            jTable5.getModel().setValueAt(productionYear, nI, 12 );
-            
-            //Overview 
-            String overview = jTextArea1.getText();
-            jTable5.getModel().setValueAt(overview, nI, 14 );
-            
-            //1 - Add People
-            DefaultTableModel modelPeople = (DefaultTableModel) jTable1.getModel();
-            jTable6.setModel(modelPeople);
-            this.resizeTableWidthColumns(jTable6);
-    
-            //2 - Add Genres
-            DefaultTableModel modelGenres = (DefaultTableModel) jTable2.getModel();
-            jTable7.setModel(modelGenres);
-            this.resizeTableWidthColumns(jTable7);
-                
-            //3 - Add Studios
-            DefaultTableModel modelStudios = (DefaultTableModel) jTable3.getModel();
-            jTable8.setModel(modelStudios);
-            this.resizeTableWidthColumns(jTable8);
-            
-            //4 - Add Tags
-            DefaultTableModel modelTags = (DefaultTableModel) jTable4.getModel();
-            jTable9.setModel(modelTags);
-            this.resizeTableWidthColumns(jTable9);            
-
-        }
+        applyFolderScalarsToContentTable();
     }
 
-    /**
-     * This method is used to complete the episode name with the episode number.
-     * 
-     * @param text The base name of the episode.
-     * @param nJ The index of the episode.
-     * @return The complete name of the episode.
-     * @author Cesar Bianchi
-     * @since 1.0
-     */
+    private void openAutoTagsDialog() {
+        new AutoTagsDialog(this, connectAPI, instanceData, jList2.getSelectedIndices()).setVisible(true);
+    }
+
+    private void openMetadataCleanerDialog() {
+        new MetadataCleanerDialog(this, connectAPI, instanceData, jList2.getSelectedIndices()).setVisible(true);
+    }
+
     private String completeEpisodeName(String text, int nJ) {
         
         int nI = nJ+1;

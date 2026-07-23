@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -90,9 +91,12 @@ public class SaveFolder {
             ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
             String bodyRequestJson = ow.writeValueAsString(itemUpdate);
 
-            HttpClient client = HttpClient.newHttpClient();
+            HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15))
+                .build();
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(this.getFullURL()))
+                .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(bodyRequestJson))
                 .setHeader("Content-type",  "application/json")
                 .build();
@@ -103,7 +107,12 @@ public class SaveFolder {
                 responsecode = response.statusCode();
 
             } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
                 Logger.getLogger(SaveFolder.class.getName()).log(Level.SEVERE, null, ex);
+                throw new IOException("Request interrupted while posting item update", ex);
+            } catch (java.net.http.HttpTimeoutException ex) {
+                Logger.getLogger(SaveFolder.class.getName()).log(Level.SEVERE, null, ex);
+                throw new IOException("Timed out while posting item update", ex);
             }
         }
         
@@ -198,14 +207,19 @@ public class SaveFolder {
                             itemToUpdate.setStatus("");
                             
                             
-                            for (int nX = 0; nX < instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getGenreItems().size(); nX++){
-                                genres.add(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getGenreItems().get(nX).getName());
+                            genres.clear();
+                            if (instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getGenreItems() != null) {
+                                for (int nX = 0; nX < instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getGenreItems().size(); nX++){
+                                    genres.add(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getGenreItems().get(nX).getName());
+                                }
                             }
                             itemToUpdate.setGenres(genres);
 
                             ArrayList<String> tags = new ArrayList();
-                            for (int nX = 0; nX < instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getTags().size(); nX++){
-                                tags.add(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getTags().get(nX) );
+                            if (instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getTags() != null) {
+                                for (int nX = 0; nX < instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getTags().size(); nX++){
+                                    tags.add(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getTags().get(nX) );
+                                }
                             }
                             itemToUpdate.setTags(tags);
                             

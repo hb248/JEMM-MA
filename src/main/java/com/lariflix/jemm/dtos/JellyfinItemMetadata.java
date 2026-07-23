@@ -46,8 +46,8 @@ public class JellyfinItemMetadata {
     public String forcedSortName;
     @JsonProperty("PremiereDate") 
     public Date premiereDate;
-    //@JsonProperty("MediaSources") 
-    //public ArrayList<JellyfimMediaSource> mediaSources;
+    @JsonProperty("MediaSources")
+    public ArrayList<JellyfinMediaSource> mediaSources;
     @JsonProperty("CriticRating") 
     public int criticRating;
     @JsonProperty("Path") 
@@ -937,6 +937,14 @@ public class JellyfinItemMetadata {
      * @since 1.0
      * @author Cesar Bianchi
      */
+    public ArrayList<JellyfinMediaSource> getMediaSources() {
+        return mediaSources;
+    }
+
+    public void setMediaSources(ArrayList<JellyfinMediaSource> mediaSources) {
+        this.mediaSources = mediaSources;
+    }
+
     public ArrayList<String> getTags() {
         return tags;
     }
