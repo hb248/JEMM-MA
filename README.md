@@ -45,6 +45,7 @@ Tag-Team Mode turns tagging into a quick, click-through workflow. It walks every
 - **One active tag map.** Edit it in **Tools → Tag Map Editor…** (tree outline + detail form + read-only structure preview with arrows). JSON remains fully supported via **Tools → Import Tag Map…** / **Export Tag Map…** (next to Metadata CSV Import/Export). The Tag-Team start dialog shows the active map and offers **Edit map…**. The map is stored as the single active file (`~/.jemm/tagmap.json` by default).
 - **Fast walk.** At start, stop metadata and the Jellyfin people/studios catalogs are preloaded. During the walk, applies stay **in memory**; **Finish & Close** (or Save when closing the window) POSTs all pending changes. Closing with unsaved work asks Save / Discard / Cancel.
 - **Decision trees.** A map has one or more named trees, walked in `order`. Each node is a chip you can click; a node may assign one or several tags/genres and/or lead to deeper chips. Single-select nodes descend automatically; multi-select nodes let you pick several children and then queue those branches in turn.
+- **Prerequisites (`requires`).** A chip may declare that it is only available when a specific node from an **earlier** tree was selected on this stop (`requires: { tree, label }`). Unmet chips are **hidden**. Put prerequisite trees first in `order`. In the Tag Map Editor, set this via *Only if selected*. If every chip in a tree is gated and hidden, that tree is still marked walked (with no picks).
 - **Skips.** Skip the current tree, the current file, a whole folder (you still visit its files), or the rest of the current folder.
 - **File-type filter.** Choose up-front whether to walk videos only, videos + images, or all files.
 - **Side panels.** Actors (with a type dropdown that defaults to *Actor*), Studios and Release date are always visible, pre-filled from the item, and editable/removable. Entries are listed with their type (`Alice (Actor)`, `Alice (Director)`). Live autocomplete uses the Jellyfin people/studios catalog; Name+Type duplicates are rejected. Filename suggestions appear inline in a distinct color; click one to promote it.
@@ -69,6 +70,7 @@ A ready-to-edit example map ships as [`tagmap.example.json`](tagmap.example.json
         {
           "label": "Solo",       // chip text
           "multiSelect": false,  // may several of THIS node's children be picked?
+          "requires": null,      // optional: { "tree": "Type", "label": "Duo" } — hide unless that chip was picked earlier
           "assign": [            // tags/genres this chip sets (optional; empty = traversal only)
             { "kind": "tag",   "value": "solo" },
             { "kind": "genre", "value": "Solo Scene" }

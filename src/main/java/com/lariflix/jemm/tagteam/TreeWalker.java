@@ -2,13 +2,17 @@ package com.lariflix.jemm.tagteam;
 
 import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagNode;
+import com.lariflix.jemm.tagteam.model.TagRequire;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -21,12 +25,18 @@ import java.util.Set;
  * selection order. A tree can be skipped with {@link #skipCurrentTree()} (its owned values are
  * then left untouched). The walker records every {@link TagAssign} chosen and the set of trees
  * that were actually walked (not skipped).</p>
+ *
+ * <p>Nodes with {@link TagRequire} are hidden unless a matching label was selected in that
+ * prerequisite tree earlier on this stop. Frames that become empty after filtering advance
+ * automatically; an empty root frame still marks the tree as walked.</p>
  */
 public class TreeWalker {
 
     private final List<TagTree> trees;
     private final List<TagAssign> collected = new ArrayList<>();
     private final Set<String> walkedTreeNames = new LinkedHashSet<>();
+    /** Lowercased tree name -> selected node labels (original casing preserved in the set). */
+    private final Map<String, Set<String>> selectedByTree = new LinkedHashMap<>();
 
     private int treeIndex = -1;
     private Frame current;
@@ -43,9 +53,9 @@ public class TreeWalker {
         treeIndex++;
         while (treeIndex < trees.size()) {
             TagTree tree = trees.get(treeIndex);
-            List<TagNode> options = tree.getChildren();
-            if (options == null || options.isEmpty()) {
-                // Nothing to pick; count as walked (owns nothing meaningful) and move on.
+            List<TagNode> options = filterOptions(tree.getChildren());
+            if (options.isEmpty()) {
+                // Nothing visible (empty tree or all chips gated); count as walked.
                 walkedTreeNames.add(tree.getName());
                 treeIndex++;
                 continue;
@@ -64,6 +74,7 @@ public class TreeWalker {
 
     /**
      * Skips the current tree without recording it as walked (its owned values stay untouched).
+     * Selections from this tree are not recorded, so later {@code requires} cannot use them.
      */
     public void skipCurrentTree() {
         advanceToNextTree();
@@ -90,16 +101,20 @@ public class TreeWalker {
     }
 
     private void process(List<TagNode> selected) {
+        String treeName = currentTreeName();
         for (TagNode node : selected) {
-            if (node != null && node.getAssign() != null) {
+            if (node == null) {
+                continue;
+            }
+            recordSelection(treeName, node.getLabel());
+            if (node.getAssign() != null) {
                 collected.addAll(node.getAssign());
             }
         }
-        // Queue children of selected nodes depth-first, preserving selection order.
         List<Frame> childFrames = new ArrayList<>();
         for (TagNode node : selected) {
             if (node != null && node.hasChildren()) {
-                childFrames.add(new Frame(currentTreeName(), node.getChildren(), node.isMultiSelect()));
+                childFrames.add(new Frame(treeName, node.getChildren(), node.isMultiSelect()));
             }
         }
         for (int i = childFrames.size() - 1; i >= 0; i--) {
@@ -109,11 +124,54 @@ public class TreeWalker {
     }
 
     private void advanceFrame() {
-        if (!stack.isEmpty()) {
-            current = stack.pop();
-        } else {
-            finishCurrentTree();
+        while (!stack.isEmpty()) {
+            Frame next = stack.pop();
+            List<TagNode> filtered = filterOptions(next.options);
+            if (!filtered.isEmpty()) {
+                current = new Frame(next.treeName, filtered, next.multiSelect);
+                return;
+            }
         }
+        finishCurrentTree();
+    }
+
+    private void recordSelection(String treeName, String label) {
+        if (treeName == null || treeName.isBlank() || label == null || label.isBlank()) {
+            return;
+        }
+        String key = treeName.trim().toLowerCase(Locale.ROOT);
+        selectedByTree.computeIfAbsent(key, k -> new LinkedHashSet<>()).add(label.trim());
+    }
+
+    private List<TagNode> filterOptions(List<TagNode> options) {
+        if (options == null || options.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TagNode> out = new ArrayList<>();
+        for (TagNode node : options) {
+            if (node != null && isRequirementSatisfied(node)) {
+                out.add(node);
+            }
+        }
+        return out;
+    }
+
+    private boolean isRequirementSatisfied(TagNode node) {
+        TagRequire req = node.getRequires();
+        if (req == null || !req.isSet()) {
+            return true;
+        }
+        Set<String> labels = selectedByTree.get(req.getTree().trim().toLowerCase(Locale.ROOT));
+        if (labels == null || labels.isEmpty()) {
+            return false;
+        }
+        String want = req.getLabel().trim();
+        for (String selected : labels) {
+            if (selected != null && selected.equalsIgnoreCase(want)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // --- state queries ------------------------------------------------------

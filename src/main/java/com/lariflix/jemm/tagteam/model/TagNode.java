@@ -8,6 +8,7 @@ import java.util.List;
  * A node (chip) in a tag tree. It carries an optional list of assignments (tags/genres);
  * an empty {@code assign} list makes the node traversal-only. {@code multiSelect} controls
  * whether the user may pick several of this node's children at once.
+ * Optional {@link #requires} hides the chip unless that prerequisite was selected earlier.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TagNode {
@@ -15,6 +16,7 @@ public class TagNode {
     private String label;
     private List<TagAssign> assign = new ArrayList<>();
     private boolean multiSelect;
+    private TagRequire requires;
     private List<TagNode> children = new ArrayList<>();
 
     public String getLabel() {
@@ -39,6 +41,14 @@ public class TagNode {
 
     public void setMultiSelect(boolean multiSelect) {
         this.multiSelect = multiSelect;
+    }
+
+    public TagRequire getRequires() {
+        return requires;
+    }
+
+    public void setRequires(TagRequire requires) {
+        this.requires = requires;
     }
 
     public List<TagNode> getChildren() {

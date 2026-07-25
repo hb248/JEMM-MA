@@ -82,6 +82,13 @@
           "assign": [
             { "kind": "tag", "value": "energetic" }
           ]
+        },
+        {
+          "label": "Duo vibe",
+          "requires": { "tree": "Type", "label": "Duo" },
+          "assign": [
+            { "kind": "tag", "value": "duo vibe" }
+          ]
         }
       ]
     }

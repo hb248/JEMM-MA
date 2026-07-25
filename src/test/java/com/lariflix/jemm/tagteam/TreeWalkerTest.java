@@ -3,12 +3,15 @@ package com.lariflix.jemm.tagteam;
 import com.lariflix.jemm.tagteam.model.AssignKind;
 import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagNode;
+import com.lariflix.jemm.tagteam.model.TagRequire;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TreeWalkerTest {
 
@@ -102,5 +105,74 @@ public class TreeWalkerTest {
         TagTree real = tree("Real", false, node("z", false, "z"));
         TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(empty, real)));
         assertEquals("Real", walker.currentTreeName());
+    }
+
+    @Test
+    public void requiresHidesChipUntilPrerequisiteSelected() {
+        TagNode duo = node("Duo", false, "duo");
+        TagNode solo = node("Solo", false, "solo");
+        TagTree type = tree("Type", false, solo, duo);
+
+        TagNode calm = node("Calm", false, "calm");
+        TagNode duoOnly = node("Duo Mood", false, "duoMood");
+        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        TagTree mood = tree("Mood", false, calm, duoOnly);
+
+        TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
+        walker.selectSingle(solo);
+        assertEquals("Mood", walker.currentTreeName());
+        List<String> labels = walker.currentOptions().stream()
+                .map(TagNode::getLabel).collect(Collectors.toList());
+        assertTrue(labels.contains("Calm"));
+        assertFalse(labels.contains("Duo Mood"));
+        walker.selectSingle(calm);
+        assertTrue(walker.isFinished());
+    }
+
+    @Test
+    public void requiresShowsChipWhenPrerequisiteSelected() {
+        TagNode duo = node("Duo", false, "duo");
+        TagTree type = tree("Type", false, duo);
+
+        TagNode duoOnly = node("Duo Mood", false, "duoMood");
+        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        TagTree mood = tree("Mood", false, duoOnly);
+
+        TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
+        walker.selectSingle(duo);
+        assertEquals("Mood", walker.currentTreeName());
+        assertEquals(1, walker.currentOptions().size());
+        assertEquals("Duo Mood", walker.currentOptions().get(0).getLabel());
+        walker.selectSingle(duoOnly);
+        assertTrue(values(walker.getCollected()).contains("duoMood"));
+    }
+
+    @Test
+    public void allGatedRootChipsMarksTreeWalkedAndAdvances() {
+        TagNode gated = node("Gated", false, "gated");
+        gated.setRequires(new TagRequire("Type", "Duo"));
+        TagTree mood = tree("Mood", false, gated);
+        TagTree after = tree("After", false, node("z", false, "z"));
+
+        TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(mood, after)));
+        // Type never walked → Mood has no visible chips → auto-walked, land on After.
+        assertEquals("After", walker.currentTreeName());
+        assertTrue(walker.getWalkedTreeNames().contains("Mood"));
+    }
+
+    @Test
+    public void skipPrerequisiteTreeLeavesRequiresUnmet() {
+        TagNode duo = node("Duo", false, "duo");
+        TagTree type = tree("Type", false, duo);
+        TagNode duoOnly = node("Duo Mood", false, "duoMood");
+        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        TagTree mood = tree("Mood", false, duoOnly, node("Always", false, "always"));
+
+        TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
+        walker.skipCurrentTree();
+        assertEquals("Mood", walker.currentTreeName());
+        List<String> labels = walker.currentOptions().stream()
+                .map(TagNode::getLabel).collect(Collectors.toList());
+        assertEquals(Collections.singletonList("Always"), labels);
     }
 }

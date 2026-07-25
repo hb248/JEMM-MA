@@ -8,6 +8,7 @@ import com.lariflix.jemm.tagteam.model.AssignKind;
 import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagMap;
 import com.lariflix.jemm.tagteam.model.TagNode;
+import com.lariflix.jemm.tagteam.model.TagRequire;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -22,6 +23,7 @@ import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
 import javax.swing.DefaultListCellRenderer;
@@ -72,6 +74,7 @@ public class TagMapEditorWindow extends JDialog {
 
     private final JTextField nodeLabelField = new JTextField();
     private final JCheckBox nodeMultiBox = new JCheckBox("Multi-select (several of this node's children)");
+    private final JComboBox<RequireChoice> requiresCombo = new JComboBox<>();
     private final AssignTableModel assignModel = new AssignTableModel();
     private final JTable assignTable = new JTable(assignModel);
 
@@ -86,6 +89,11 @@ public class TagMapEditorWindow extends JDialog {
     private boolean dirty;
     private boolean suppressDetailEvents;
     private boolean saved;
+    /** Last committed tree name for retargeting {@code requires} on rename. */
+    private String renameAnchorTreeName;
+    /** Last committed node label / enclosing tree for retargeting {@code requires}. */
+    private String renameAnchorNodeLabel;
+    private String renameAnchorNodeTree;
 
     public TagMapEditorWindow(Window owner) {
         this(owner, new TagMapStore());
@@ -248,6 +256,14 @@ public class TagMapEditorWindow extends JDialog {
         c.gridy = 1;
         c.gridwidth = 2;
         top.add(nodeMultiBox, c);
+        c.gridy = 2;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        top.add(new JLabel("Only if selected"), c);
+        c.gridx = 1;
+        c.weightx = 1;
+        requiresCombo.setToolTipText("Hide this chip unless the chosen node was selected in an earlier tree.");
+        top.add(requiresCombo, c);
 
         assignTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         assignTable.setFillsViewportHeight(true);
@@ -302,7 +318,13 @@ public class TagMapEditorWindow extends JDialog {
             if (suppressDetailEvents || !(selected instanceof TagTree)) {
                 return;
             }
-            ((TagTree) selected).setName(treeNameField.getText());
+            String newName = treeNameField.getText();
+            String oldName = renameAnchorTreeName;
+            ((TagTree) selected).setName(newName);
+            if (oldName != null && !oldName.equals(newName)) {
+                retargetRequiresTree(oldName, newName);
+                renameAnchorTreeName = newName;
+            }
             treeModel.nodeChanged(selected);
             refreshPreview();
             markDirty();
@@ -329,7 +351,14 @@ public class TagMapEditorWindow extends JDialog {
             if (suppressDetailEvents || !(selected instanceof TagNode)) {
                 return;
             }
-            ((TagNode) selected).setLabel(nodeLabelField.getText());
+            String newLabel = nodeLabelField.getText();
+            String oldLabel = renameAnchorNodeLabel;
+            String treeName = renameAnchorNodeTree;
+            ((TagNode) selected).setLabel(newLabel);
+            if (oldLabel != null && treeName != null && !oldLabel.equals(newLabel)) {
+                retargetRequiresNode(treeName, oldLabel, newLabel);
+                renameAnchorNodeLabel = newLabel;
+            }
             treeModel.nodeChanged(selected);
             refreshPreview();
             markDirty();
@@ -339,6 +368,21 @@ public class TagMapEditorWindow extends JDialog {
                 return;
             }
             ((TagNode) selected).setMultiSelect(nodeMultiBox.isSelected());
+            treeModel.nodeChanged(selected);
+            refreshPreview();
+            markDirty();
+        });
+        requiresCombo.addActionListener(e -> {
+            if (suppressDetailEvents || !(selected instanceof TagNode)) {
+                return;
+            }
+            RequireChoice choice = (RequireChoice) requiresCombo.getSelectedItem();
+            TagNode node = (TagNode) selected;
+            if (choice == null || choice.require == null) {
+                node.setRequires(null);
+            } else {
+                node.setRequires(new TagRequire(choice.require.getTree(), choice.require.getLabel()));
+            }
             treeModel.nodeChanged(selected);
             refreshPreview();
             markDirty();
@@ -414,16 +458,27 @@ public class TagMapEditorWindow extends JDialog {
         try {
             if (selected instanceof TagTree) {
                 TagTree t = (TagTree) selected;
-                treeNameField.setText(t.getName() == null ? "" : t.getName());
+                renameAnchorTreeName = t.getName() == null ? "" : t.getName();
+                treeNameField.setText(renameAnchorTreeName);
                 treeOrderSpinner.setValue(t.getOrder());
                 treeMultiBox.setSelected(t.isMultiSelect());
                 detailCards.show(detailHost, "tree");
             } else if (selected instanceof TagNode) {
                 TagNode n = (TagNode) selected;
-                nodeLabelField.setText(n.getLabel() == null ? "" : n.getLabel());
+                TagTree enclosing = treeModel.enclosingTree(n);
+                renameAnchorNodeLabel = n.getLabel() == null ? "" : n.getLabel();
+                renameAnchorNodeTree = enclosing == null || enclosing.getName() == null
+                        ? "" : enclosing.getName();
+                nodeLabelField.setText(renameAnchorNodeLabel);
                 nodeMultiBox.setSelected(n.isMultiSelect());
                 assignModel.bind(n);
+                populateRequiresCombo(n, enclosing);
                 detailCards.show(detailHost, "node");
+                if (n.getRequires() != null && n.getRequires().isSet()
+                        && !requirementTargetExists(n.getRequires())) {
+                    statusLabel.setText("Warning: requires " + n.getRequires().getTree() + "/"
+                            + n.getRequires().getLabel() + " — target not found in map.");
+                }
             } else {
                 showEmptyDetail();
             }
@@ -595,6 +650,169 @@ public class TagMapEditorWindow extends JDialog {
                 r.run();
             }
         };
+    }
+
+    private void populateRequiresCombo(TagNode current, TagTree enclosing) {
+        requiresCombo.removeAllItems();
+        requiresCombo.addItem(RequireChoice.none());
+        int maxOrder = enclosing == null ? Integer.MAX_VALUE : enclosing.getOrder();
+        List<TagNode> excluded = new ArrayList<>();
+        excluded.add(current);
+        collectDescendants(current, excluded);
+
+        RequireChoice selectedChoice = RequireChoice.none();
+        TagRequire currentReq = current.getRequires();
+        for (TagTree tree : treeModel.getMap().getTrees()) {
+            if (tree == null || tree.getOrder() >= maxOrder) {
+                continue;
+            }
+            String treeName = tree.getName() == null ? "" : tree.getName();
+            addRequireChoices(tree.getChildren(), treeName, excluded, currentReq);
+        }
+        // Ensure current requires stays selectable even if target is in same/later tree or missing.
+        if (currentReq != null && currentReq.isSet()) {
+            boolean found = false;
+            for (int i = 0; i < requiresCombo.getItemCount(); i++) {
+                RequireChoice c = requiresCombo.getItemAt(i);
+                if (c != null && c.matches(currentReq)) {
+                    selectedChoice = c;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                RequireChoice orphan = RequireChoice.of(currentReq.getTree(), currentReq.getLabel());
+                requiresCombo.addItem(orphan);
+                selectedChoice = orphan;
+            }
+        }
+        requiresCombo.setSelectedItem(selectedChoice);
+    }
+
+    private void addRequireChoices(List<TagNode> nodes, String treeName, List<TagNode> excluded,
+            TagRequire currentReq) {
+        if (nodes == null) {
+            return;
+        }
+        for (TagNode n : nodes) {
+            if (n == null) {
+                continue;
+            }
+            if (!excluded.contains(n) && n.getLabel() != null && !n.getLabel().isBlank()) {
+                RequireChoice choice = RequireChoice.of(treeName, n.getLabel().trim());
+                requiresCombo.addItem(choice);
+                if (currentReq != null && choice.matches(currentReq)) {
+                    // selection applied by caller
+                }
+            }
+            addRequireChoices(n.getChildren(), treeName, excluded, currentReq);
+        }
+    }
+
+    private static void collectDescendants(TagNode node, List<TagNode> into) {
+        if (node == null || node.getChildren() == null) {
+            return;
+        }
+        for (TagNode child : node.getChildren()) {
+            into.add(child);
+            collectDescendants(child, into);
+        }
+    }
+
+    private void retargetRequiresTree(String oldTreeName, String newTreeName) {
+        if (oldTreeName == null || newTreeName == null) {
+            return;
+        }
+        for (TagTree tree : treeModel.getMap().getTrees()) {
+            retargetRequiresInNodes(tree.getChildren(), oldTreeName, null, newTreeName, null);
+        }
+        treeModel.structureChanged();
+    }
+
+    private void retargetRequiresNode(String treeName, String oldLabel, String newLabel) {
+        if (treeName == null || oldLabel == null || newLabel == null) {
+            return;
+        }
+        for (TagTree tree : treeModel.getMap().getTrees()) {
+            retargetRequiresInNodes(tree.getChildren(), treeName, oldLabel, treeName, newLabel);
+        }
+        treeModel.structureChanged();
+    }
+
+    private void retargetRequiresInNodes(List<TagNode> nodes, String matchTree, String matchLabel,
+            String newTree, String newLabel) {
+        if (nodes == null) {
+            return;
+        }
+        for (TagNode n : nodes) {
+            TagRequire req = n.getRequires();
+            if (req != null && req.isSet()
+                    && req.getTree().equalsIgnoreCase(matchTree)
+                    && (matchLabel == null || req.getLabel().equalsIgnoreCase(matchLabel))) {
+                req.setTree(newTree);
+                if (newLabel != null) {
+                    req.setLabel(newLabel);
+                }
+            }
+            retargetRequiresInNodes(n.getChildren(), matchTree, matchLabel, newTree, newLabel);
+        }
+    }
+
+    private boolean requirementTargetExists(TagRequire req) {
+        if (req == null || !req.isSet()) {
+            return true;
+        }
+        for (TagTree tree : treeModel.getMap().getTrees()) {
+            if (tree.getName() != null && tree.getName().equalsIgnoreCase(req.getTree())
+                    && labelExistsIn(tree.getChildren(), req.getLabel())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean labelExistsIn(List<TagNode> nodes, String label) {
+        if (nodes == null || label == null) {
+            return false;
+        }
+        for (TagNode n : nodes) {
+            if (n.getLabel() != null && n.getLabel().equalsIgnoreCase(label)) {
+                return true;
+            }
+            if (labelExistsIn(n.getChildren(), label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final class RequireChoice {
+        private final TagRequire require;
+        private final String display;
+
+        private RequireChoice(TagRequire require, String display) {
+            this.require = require;
+            this.display = display;
+        }
+
+        static RequireChoice none() {
+            return new RequireChoice(null, "(none)");
+        }
+
+        static RequireChoice of(String tree, String label) {
+            return new RequireChoice(new TagRequire(tree, label), tree + " / " + label);
+        }
+
+        boolean matches(TagRequire req) {
+            return require != null && req != null && require.isSet() && req.isSet()
+                    && require.getTree().equalsIgnoreCase(req.getTree())
+                    && require.getLabel().equalsIgnoreCase(req.getLabel());
+        }
+
+        @Override
+        public String toString() {
+            return display;
+        }
     }
 
     private static final class AssignTableModel extends AbstractTableModel {
