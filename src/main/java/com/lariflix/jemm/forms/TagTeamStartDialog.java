@@ -16,7 +16,6 @@ import com.lariflix.jemm.utils.JemmSettingsStore;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Frame;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -25,19 +24,18 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
-import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
-import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
- * Entry dialog for Tag-Team mode: shows the single active tag map (with Import/Export),
- * lets the user pick which media types to walk, and starts the guided window after
- * preloading stop metadata and people/studios catalogs.
+ * Entry dialog for Tag-Team mode: shows the single active tag map, lets the user
+ * open the Tag Map Editor, pick which media types to walk, and start the guided
+ * window after preloading stop metadata and people/studios catalogs.
+ * JSON Import/Export live under Tools (next to Metadata CSV).
  */
 public class TagTeamStartDialog extends JDialog {
 
@@ -112,12 +110,9 @@ public class TagTeamStartDialog extends JDialog {
         mapPanel.setAlignmentX(0f);
         mapPanel.add(mapInfoLabel, BorderLayout.CENTER);
         JPanel mapButtons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton importButton = new JButton("Import...");
-        importButton.addActionListener(e -> onImport());
-        JButton exportButton = new JButton("Export...");
-        exportButton.addActionListener(e -> onExport());
-        mapButtons.add(importButton);
-        mapButtons.add(exportButton);
+        JButton editButton = new JButton("Edit map...");
+        editButton.addActionListener(e -> onEditMap());
+        mapButtons.add(editButton);
         mapPanel.add(mapButtons, BorderLayout.SOUTH);
         center.add(mapPanel);
 
@@ -143,7 +138,8 @@ public class TagTeamStartDialog extends JDialog {
             return;
         }
         if (activeMap == null || activeMap.isEmpty()) {
-            mapInfoLabel.setText("<html>No tag map yet. Use <b>Import...</b> to load a JSON tag map "
+            mapInfoLabel.setText("<html>No tag map yet. Use <b>Tools → Tag Map Editor…</b> or "
+                    + "<b>Tools → Import Tag Map…</b> "
                     + "(" + tagMapStore.getFile().getAbsolutePath() + ").</html>");
             startButton.setEnabled(false);
         } else {
@@ -153,40 +149,19 @@ public class TagTeamStartDialog extends JDialog {
         }
     }
 
-    private void onImport() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Import tag map JSON");
-        chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                tagMapStore.importFrom(chooser.getSelectedFile());
-                statusLabel.setText("Tag map imported.");
-                reloadMapInfo();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage(),
-                        "Tag-Team Mode", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
-    private void onExport() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Export tag map JSON");
-        chooser.setSelectedFile(new File("tagmap.json"));
-        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                tagMapStore.exportTo(chooser.getSelectedFile());
-                statusLabel.setText("Tag map exported.");
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage(),
-                        "Tag-Team Mode", JOptionPane.ERROR_MESSAGE);
-            }
+    private void onEditMap() {
+        TagMapEditorWindow editor = new TagMapEditorWindow(owner, tagMapStore);
+        editor.setVisible(true);
+        reloadMapInfo();
+        if (editor.wasSaved()) {
+            statusLabel.setText("Tag map updated.");
         }
     }
 
     private void onStart() {
         if (activeMap == null || activeMap.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Import a tag map first.",
+            JOptionPane.showMessageDialog(this,
+                    "Create or import a tag map first (Tools → Tag Map Editor / Import Tag Map).",
                     "Tag-Team Mode", JOptionPane.WARNING_MESSAGE);
             return;
         }

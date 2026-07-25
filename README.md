@@ -42,7 +42,7 @@ Credit and thanks to [Cesar Bianchi](https://github.com/CesarBianchi) for the or
 
 Tag-Team Mode turns tagging into a quick, click-through workflow. It walks every **stop** in the selected libraries — each folder, then its files, recursively — and for each stop lets you click through your **tag map** (decision trees) while editing actors, studios and the release date on the side.
 
-- **One active tag map.** The map is authored as JSON (a visual editor is planned) and kept as the single active map by the app. Use **Import…** / **Export…** in the start dialog to bring a JSON file in or write the current one out.
+- **One active tag map.** Edit it in **Tools → Tag Map Editor…** (tree outline + detail form + read-only structure preview with arrows). JSON remains fully supported via **Tools → Import Tag Map…** / **Export Tag Map…** (next to Metadata CSV Import/Export). The Tag-Team start dialog shows the active map and offers **Edit map…**. The map is stored as the single active file (`~/.jemm/tagmap.json` by default).
 - **Fast walk.** At start, stop metadata and the Jellyfin people/studios catalogs are preloaded. During the walk, applies stay **in memory**; **Finish & Close** (or Save when closing the window) POSTs all pending changes. Closing with unsaved work asks Save / Discard / Cancel.
 - **Decision trees.** A map has one or more named trees, walked in `order`. Each node is a chip you can click; a node may assign one or several tags/genres and/or lead to deeper chips. Single-select nodes descend automatically; multi-select nodes let you pick several children and then queue those branches in turn.
 - **Skips.** Skip the current tree, the current file, a whole folder (you still visit its files), or the rest of the current folder.

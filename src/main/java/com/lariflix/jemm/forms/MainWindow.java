@@ -118,6 +118,19 @@ public class MainWindow extends javax.swing.JFrame {
             }
         });
 
+        // Tag map JSON + editor sit with Metadata CSV Import/Export at the top of Tools.
+        int tagMapInsert = 2; // after Export Metadata / Import Metadata
+        JMenuItem importTagMapMenuItem = new JMenuItem("Import Tag Map...");
+        importTagMapMenuItem.addActionListener(evt -> importTagMapJson());
+        jMenu10.insert(importTagMapMenuItem, tagMapInsert++);
+        JMenuItem exportTagMapMenuItem = new JMenuItem("Export Tag Map...");
+        exportTagMapMenuItem.addActionListener(evt -> exportTagMapJson());
+        jMenu10.insert(exportTagMapMenuItem, tagMapInsert++);
+        JMenuItem tagMapEditorMenuItem = new JMenuItem("Tag Map Editor...");
+        tagMapEditorMenuItem.addActionListener(evt -> openTagMapEditor());
+        jMenu10.insert(tagMapEditorMenuItem, tagMapInsert++);
+        jMenu10.insertSeparator(tagMapInsert);
+
         JMenuItem autoTagsMenuItem = new JMenuItem("Auto Tags...");
         autoTagsMenuItem.addActionListener(evt -> openAutoTagsDialog());
         jMenu10.add(autoTagsMenuItem);
@@ -3864,6 +3877,71 @@ public class MainWindow extends javax.swing.JFrame {
         new TagTeamStartDialog(this, connectAPI, instanceData, selected).setVisible(true);
         // Refresh the currently displayed folder so applied metadata becomes visible.
         this.setFieldsValues();
+    }
+
+    private void openTagMapEditor() {
+        new TagMapEditorWindow(this).setVisible(true);
+    }
+
+    private void importTagMapJson() {
+        File file = askOpenTagMapJson();
+        if (file == null) {
+            return;
+        }
+        try {
+            new com.lariflix.jemm.tagteam.TagMapStore().importFrom(file);
+            JOptionPane.showMessageDialog(this,
+                    "Tag map imported as the active map.\n" + file.getAbsolutePath(),
+                    "Import Tag Map", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Import failed: " + ex.getMessage(),
+                    "Import Tag Map", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void exportTagMapJson() {
+        File file = askSaveTagMapJson();
+        if (file == null) {
+            return;
+        }
+        try {
+            new com.lariflix.jemm.tagteam.TagMapStore().exportTo(file);
+            JOptionPane.showMessageDialog(this,
+                    "Tag map exported.\n" + file.getAbsolutePath(),
+                    "Export Tag Map", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage(),
+                    "Export Tag Map", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private File askOpenTagMapJson() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Import tag map JSON");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.getSelectedFile();
+        }
+        return null;
+    }
+
+    private File askSaveTagMapJson() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Export tag map JSON");
+        fileChooser.setSelectedFile(new File("tagmap.json"));
+        fileChooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File selected = fileChooser.getSelectedFile();
+            if (selected == null) {
+                return null;
+            }
+            String path = selected.getAbsolutePath();
+            if (!path.toLowerCase().endsWith(".json")) {
+                selected = new File(path + ".json");
+            }
+            return selected;
+        }
+        return null;
     }
 
     private String completeEpisodeName(String text, int nJ) {

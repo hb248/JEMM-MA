@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * The single active tag map: a versioned collection of named decision trees.
- * Authored externally as JSON (visual editor is a later phase).
+ * Authored in the Tag Map Editor or via Tools → Import/Export JSON.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TagMap {

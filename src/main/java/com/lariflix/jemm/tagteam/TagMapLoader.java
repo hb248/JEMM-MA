@@ -54,6 +54,20 @@ public class TagMapLoader {
     }
 
     /**
+     * Serializes a tag map to a pretty-printed JSON string.
+     */
+    public String toJson(TagMap map) throws IOException {
+        return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(map == null ? new TagMap() : map);
+    }
+
+    /**
+     * Deep-copies a tag map via JSON round-trip (validates/normalizes like {@link #parse}).
+     */
+    public TagMap deepCopy(TagMap map) throws IOException {
+        return parse(toJson(map));
+    }
+
+    /**
      * Normalizes the map in place: replaces null lists with empty ones, trims names,
      * validates that every tree has a non-blank name, and sorts trees by {@code order}
      * (stable, keeping declaration order for ties). Throws {@link IllegalArgumentException}
