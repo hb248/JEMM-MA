@@ -3518,9 +3518,9 @@ public class MainWindow extends javax.swing.JFrame {
         
         
         instanceData.getFolders().getItems().get(nIndex).setName(jTextField2.getText().trim());
-        instanceData.getFolders().getItems().get(nIndex).setPremiereDate(transforDate.getFullDateFromSimple(jTextField8.getText().trim()));        
-        instanceData.getFolders().getItems().get(nIndex).setCriticRating(10);
-        instanceData.getFolders().getItems().get(nIndex).setCommunityRating(10);        
+        instanceData.getFolders().getItems().get(nIndex).setPremiereDate(transforDate.getFullDateFromSimple(jTextField8.getText().trim()));
+        // Critic/Community ratings are not editable in the Library Metadata UI — keep existing
+        // values instead of the old hardcoded 10 that polluted every "Apply for Library" save.
         instanceData.getFolders().getItems().get(nIndex).setProductionYear(productionYear);
         
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setName(jTextField2.getText().trim());
@@ -3534,7 +3534,6 @@ public class MainWindow extends javax.swing.JFrame {
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setOfficialRating(jComboBox2.getSelectedItem() == null ? "" : jComboBox2.getSelectedItem().toString());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCustomRating(jComboBox1.getSelectedItem() == null ? "" : jComboBox1.getSelectedItem().toString());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setOverview(jTextArea1.getText().trim());
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setCommunityRating(10);
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setProductionYear(productionYear);
         
         //1 - Add People
