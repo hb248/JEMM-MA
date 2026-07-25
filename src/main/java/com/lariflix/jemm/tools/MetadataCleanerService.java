@@ -14,6 +14,11 @@ public class MetadataCleanerService {
 
     public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios,
             boolean preferredLangCountry) {
+        return clear(metadata, tags, people, genres, studios, preferredLangCountry, false);
+    }
+
+    public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios,
+            boolean preferredLangCountry, boolean autoTagsOnly) {
         if (metadata == null) {
             return false;
         }
@@ -26,8 +31,21 @@ public class MetadataCleanerService {
             }
         }
         if (tags && metadata.getTags() != null && !metadata.getTags().isEmpty()) {
-            metadata.setTags(new ArrayList<>());
-            changed = true;
+            if (autoTagsOnly) {
+                ArrayList<String> kept = new ArrayList<>();
+                for (String tag : metadata.getTags()) {
+                    if (!ManagedAutoTags.isManaged(tag)) {
+                        kept.add(tag);
+                    }
+                }
+                if (kept.size() != metadata.getTags().size()) {
+                    metadata.setTags(kept);
+                    changed = true;
+                }
+            } else {
+                metadata.setTags(new ArrayList<>());
+                changed = true;
+            }
         }
         if (people && metadata.getPeople() != null && !metadata.getPeople().isEmpty()) {
             metadata.setPeople(new ArrayList<>());

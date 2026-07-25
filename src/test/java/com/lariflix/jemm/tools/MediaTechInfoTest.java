@@ -54,6 +54,34 @@ public class MediaTechInfoTest {
         assertTrue(info.needsProbe());
     }
 
+    @Test
+    public void audioDetectionFromStreams() {
+        // videoInfo() adds only a video stream -> audio is known and absent.
+        MediaTechInfo silent = videoInfo(1920, 1080, 30, 5_000_000);
+        assertTrue(silent.isAudioKnown());
+        assertFalse(silent.isHasAudio());
+    }
+
+    @Test
+    public void audioUnknownWithoutStreams() {
+        MediaTechInfo info = new MediaTechInfo();
+        assertFalse(info.isAudioKnown());
+    }
+
+    @Test
+    public void mergeFillsAudioWhenUnknown() {
+        MediaTechInfo info = new MediaTechInfo();
+        assertFalse(info.isAudioKnown());
+        FfprobeResult probe = new FfprobeResult();
+        probe.setWidth(1920);
+        probe.setHeight(1080);
+        probe.setAudioKnown(true);
+        probe.setHasAudio(false);
+        info.merge(probe);
+        assertTrue(info.isAudioKnown());
+        assertFalse(info.isHasAudio());
+    }
+
     private MediaTechInfo videoInfo(int w, int h, double fps, long bitrate) {
         JellyfinItemMetadata metadata = new JellyfinItemMetadata();
         metadata.setMediaType("Video");

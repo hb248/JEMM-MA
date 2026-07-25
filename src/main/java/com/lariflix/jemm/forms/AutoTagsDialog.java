@@ -19,8 +19,10 @@ import com.lariflix.jemm.utils.JemmSettingsStore;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Frame;
+import java.awt.GridLayout;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -51,6 +53,11 @@ public class AutoTagsDialog extends JDialog {
     private final JTextField ffprobePathField = new JTextField();
     private final JCheckBox aspectHintFallbackBox = new JCheckBox(
             "If ffprobe is unavailable, use poster/aspect-ratio hint for orientation only");
+    private final JCheckBox catOrientationBox = new JCheckBox("Orientation (vertical / horizontal / square)");
+    private final JCheckBox catResolutionBox = new JCheckBox("Resolution (SD ... 8K / ULTRA RES)");
+    private final JCheckBox catFpsBox = new JCheckBox("Frame rate (low / standart / high fps)");
+    private final JCheckBox catQualityBox = new JCheckBox("Quality rating (QR#)");
+    private final JCheckBox catNoAudioBox = new JCheckBox("No Audio (silent videos)");
 
     private int skippedNoResolution;
     private int skippedNoRules;
@@ -66,7 +73,7 @@ public class AutoTagsDialog extends JDialog {
         super(owner, "JEMM - Auto Tags", true);
         this.api = api;
         this.selectedFolderIds = resolveFolderIds(instance, selectedFolderIndexes);
-        setSize(560, 280);
+        setSize(580, 420);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
@@ -95,6 +102,21 @@ public class AutoTagsDialog extends JDialog {
 
         statusLabel.setAlignmentX(0f);
         north.add(statusLabel);
+
+        JPanel categoriesPanel = new JPanel(new GridLayout(0, 1));
+        categoriesPanel.setBorder(BorderFactory.createTitledBorder("Tag categories"));
+        categoriesPanel.setAlignmentX(0f);
+        catOrientationBox.setSelected(settings.isAutoTagCategoryEnabled("orientation", true));
+        catResolutionBox.setSelected(settings.isAutoTagCategoryEnabled("resolution", true));
+        catFpsBox.setSelected(settings.isAutoTagCategoryEnabled("fps", true));
+        catQualityBox.setSelected(settings.isAutoTagCategoryEnabled("quality", true));
+        catNoAudioBox.setSelected(settings.isAutoTagCategoryEnabled("noAudio", true));
+        categoriesPanel.add(catOrientationBox);
+        categoriesPanel.add(catResolutionBox);
+        categoriesPanel.add(catFpsBox);
+        categoriesPanel.add(catQualityBox);
+        categoriesPanel.add(catNoAudioBox);
+        north.add(categoriesPanel);
 
         JPanel settingsPanel = new JPanel();
         settingsPanel.setLayout(new BoxLayout(settingsPanel, BoxLayout.Y_AXIS));
@@ -156,6 +178,22 @@ public class AutoTagsDialog extends JDialog {
     }
 
     private void runJob() {
+        final AutoTagRules.Config config = new AutoTagRules.Config();
+        config.orientation = catOrientationBox.isSelected();
+        config.resolution = catResolutionBox.isSelected();
+        config.fps = catFpsBox.isSelected();
+        config.quality = catQualityBox.isSelected();
+        config.noAudio = catNoAudioBox.isSelected();
+        if (!config.orientation && !config.resolution && !config.fps && !config.quality && !config.noAudio) {
+            JOptionPane.showMessageDialog(this, "Select at least one tag category.", "Auto Tags", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        settings.setAutoTagCategoryEnabled("orientation", config.orientation);
+        settings.setAutoTagCategoryEnabled("resolution", config.resolution);
+        settings.setAutoTagCategoryEnabled("fps", config.fps);
+        settings.setAutoTagCategoryEnabled("quality", config.quality);
+        settings.setAutoTagCategoryEnabled("noAudio", config.noAudio);
+
         startButton.setEnabled(false);
         statusLabel.setIcon(new JellyfinUtilFunctions().getOficialJemmIcon());
         statusLabel.setText("Collecting items...");
@@ -230,15 +268,17 @@ public class AutoTagsDialog extends JDialog {
                                 }
                             }
                         }
-                        List<String> computed = rules.compute(tech);
+                        List<String> computed = rules.compute(tech, config);
+                        EnumSet<ManagedAutoTags.Category> scope = rules.authoritativeCategories(tech, config);
                         boolean hasDimensions = tech.getWidth() > 0 && tech.getHeight() > 0;
-                        if ((computed == null || computed.isEmpty()) && !hasDimensions && useAspectHint) {
+                        if ((computed == null || computed.isEmpty()) && !hasDimensions && useAspectHint && config.orientation) {
                             // Degraded fallback: derive orientation only from the poster/aspect-ratio hint.
                             String hint = aspectHint(item);
                             String orientation = rules.orientationFromAspect(hint);
                             if (orientation != null) {
                                 computed = new ArrayList<>();
                                 computed.add(orientation);
+                                scope.add(ManagedAutoTags.Category.ORIENTATION);
                             }
                         }
                         if (computed == null || computed.isEmpty()) {
@@ -255,7 +295,7 @@ public class AutoTagsDialog extends JDialog {
                         }
                         ArrayList<String> synced = ManagedAutoTags.sync(
                                 item.getMetadata() == null ? null : item.getMetadata().getTags(),
-                                computed);
+                                computed, scope);
                         if (synced == null) {
                             result.skipped++;
                             skippedUnchanged++;

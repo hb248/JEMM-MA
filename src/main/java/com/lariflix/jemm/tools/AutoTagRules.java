@@ -1,6 +1,8 @@
 package com.lariflix.jemm.tools;
 
+import com.lariflix.jemm.tools.ManagedAutoTags.Category;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -12,32 +14,94 @@ public class AutoTagRules {
 
     public static final double SQUARE_TOLERANCE = 0.08d;
 
+    /**
+     * Selects which managed auto-tag categories are computed and applied.
+     */
+    public static class Config {
+        public boolean orientation = true;
+        public boolean fps = true;
+        public boolean resolution = true;
+        public boolean quality = true;
+        public boolean noAudio = true;
+
+        public static Config all() {
+            return new Config();
+        }
+    }
+
     public List<String> compute(MediaTechInfo info) {
+        return compute(info, Config.all());
+    }
+
+    public List<String> compute(MediaTechInfo info, Config config) {
         LinkedHashSet<String> tags = new LinkedHashSet<>();
-        if (info == null) {
+        if (info == null || config == null) {
             return new ArrayList<>(tags);
         }
 
-        String orientation = orientationTag(info);
-        if (orientation != null) {
-            tags.add(orientation);
+        if (config.orientation) {
+            String orientation = orientationTag(info);
+            if (orientation != null) {
+                tags.add(orientation);
+            }
         }
 
-        String resolution = resolutionTag(info);
-        if (resolution != null) {
-            tags.add(resolution);
+        if (config.resolution) {
+            String resolution = resolutionTag(info);
+            if (resolution != null) {
+                tags.add(resolution);
+            }
         }
 
-        if (info.isVideo() && info.getFrameRate() > 0) {
+        if (config.noAudio && info.isVideo() && info.isAudioKnown() && !info.isHasAudio()) {
+            tags.add(ManagedAutoTags.NO_AUDIO);
+        }
+
+        if (config.fps && info.isVideo() && info.getFrameRate() > 0) {
             tags.add(fpsTag(info.getFrameRate()));
         }
 
-        String qr = qualityRatingTag(info);
-        if (qr != null) {
-            tags.add(qr);
+        if (config.quality) {
+            String qr = qualityRatingTag(info);
+            if (qr != null) {
+                tags.add(qr);
+            }
         }
 
         return new ArrayList<>(tags);
+    }
+
+    /**
+     * Returns the categories this run is authoritative for: enabled in the config AND
+     * determinable for this item. Only these categories are replaced during sync, so
+     * categories that can't be determined (or are disabled) leave existing tags intact.
+     *
+     * @param info   the item's technical info
+     * @param config the selected categories
+     * @return the authoritative category set
+     */
+    public EnumSet<Category> authoritativeCategories(MediaTechInfo info, Config config) {
+        EnumSet<Category> scope = EnumSet.noneOf(Category.class);
+        if (info == null || config == null) {
+            return scope;
+        }
+        boolean hasDimensions = info.getWidth() > 0 && info.getHeight() > 0;
+        if (config.orientation && hasDimensions) {
+            scope.add(Category.ORIENTATION);
+        }
+        if (config.resolution && hasDimensions) {
+            scope.add(Category.RESOLUTION);
+        }
+        if (config.fps && info.isVideo() && info.getFrameRate() > 0) {
+            scope.add(Category.FPS);
+        }
+        if (config.quality && qualityRatingTag(info) != null) {
+            scope.add(Category.QUALITY);
+        }
+        if (config.noAudio && info.isVideo() && info.isAudioKnown()) {
+            scope.add(Category.AUDIO);
+        }
+        return scope;
     }
 
     public String orientationTag(MediaTechInfo info) {

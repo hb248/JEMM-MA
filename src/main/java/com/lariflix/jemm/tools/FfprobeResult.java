@@ -10,6 +10,8 @@ public class FfprobeResult {
     private double frameRate;
     private long bitRate;
     private long fileSize;
+    private boolean hasAudio;
+    private boolean audioKnown;
 
     public int getWidth() {
         return width;
@@ -51,7 +53,23 @@ public class FfprobeResult {
         this.fileSize = fileSize;
     }
 
+    public boolean isHasAudio() {
+        return hasAudio;
+    }
+
+    public void setHasAudio(boolean hasAudio) {
+        this.hasAudio = hasAudio;
+    }
+
+    public boolean isAudioKnown() {
+        return audioKnown;
+    }
+
+    public void setAudioKnown(boolean audioKnown) {
+        this.audioKnown = audioKnown;
+    }
+
     public boolean hasAnyData() {
-        return width > 0 || height > 0 || frameRate > 0 || bitRate > 0 || fileSize > 0;
+        return width > 0 || height > 0 || frameRate > 0 || bitRate > 0 || fileSize > 0 || audioKnown;
     }
 }

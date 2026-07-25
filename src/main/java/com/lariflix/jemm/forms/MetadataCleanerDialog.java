@@ -33,6 +33,7 @@ public class MetadataCleanerDialog extends JDialog {
     private final ConnectJellyfinAPI api;
     private final List<String> selectedFolderIds;
     private final JCheckBox tagsBox = new JCheckBox("Tags", true);
+    private final JCheckBox autoTagsOnlyBox = new JCheckBox("    ... only auto-tags (keep manual tags)", false);
     private final JCheckBox peopleBox = new JCheckBox("People", false);
     private final JCheckBox genresBox = new JCheckBox("Genres", false);
     private final JCheckBox studiosBox = new JCheckBox("Studios", false);
@@ -48,7 +49,7 @@ public class MetadataCleanerDialog extends JDialog {
         super(owner, "JEMM - Metadata Cleaner", true);
         this.api = api;
         this.selectedFolderIds = resolveFolderIds(instance, selectedFolderIndexes);
-        setSize(560, 300);
+        setSize(560, 330);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
@@ -56,12 +57,16 @@ public class MetadataCleanerDialog extends JDialog {
         JPanel options = new JPanel(new GridLayout(0, 1));
         options.add(new JLabel("This cannot be undone. Clears lists on all media under selected libraries (recursive)."));
         options.add(tagsBox);
+        options.add(autoTagsOnlyBox);
         options.add(peopleBox);
         options.add(genresBox);
         options.add(studiosBox);
         options.add(prefLangCountryBox);
         options.add(includeFoldersBox);
         add(options, BorderLayout.NORTH);
+
+        autoTagsOnlyBox.setEnabled(tagsBox.isSelected());
+        tagsBox.addItemListener(e -> autoTagsOnlyBox.setEnabled(tagsBox.isSelected()));
 
         progressBar.setStringPainted(true);
         JPanel center = new JPanel(new BorderLayout());
@@ -102,6 +107,7 @@ public class MetadataCleanerDialog extends JDialog {
 
     private void runJob() {
         boolean tags = tagsBox.isSelected();
+        boolean autoTagsOnly = tags && autoTagsOnlyBox.isSelected();
         boolean people = peopleBox.isSelected();
         boolean genres = genresBox.isSelected();
         boolean studios = studiosBox.isSelected();
@@ -153,7 +159,7 @@ public class MetadataCleanerDialog extends JDialog {
                     index++;
                     publish("Item " + index + "/" + items.size());
                     try {
-                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios, prefLangCountry);
+                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios, prefLangCountry, autoTagsOnly);
                         if (!changed) {
                             result.skipped++;
                         } else {

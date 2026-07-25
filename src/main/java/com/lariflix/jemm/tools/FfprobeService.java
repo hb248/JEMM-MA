@@ -80,13 +80,17 @@ public class FfprobeService {
 
         JsonNode streams = root.get("streams");
         JsonNode chosen = null;
-        if (streams != null && streams.isArray()) {
+        if (streams != null && streams.isArray() && streams.size() > 0) {
+            // A non-empty stream listing lets us determine audio presence.
+            result.setAudioKnown(true);
             // Prefer the first video stream; fall back to any stream carrying dimensions.
             for (JsonNode stream : streams) {
                 String codecType = text(stream, "codec_type");
-                if ("video".equalsIgnoreCase(codecType)) {
+                if ("audio".equalsIgnoreCase(codecType)) {
+                    result.setHasAudio(true);
+                }
+                if (chosen == null && "video".equalsIgnoreCase(codecType)) {
                     chosen = stream;
-                    break;
                 }
             }
             if (chosen == null) {

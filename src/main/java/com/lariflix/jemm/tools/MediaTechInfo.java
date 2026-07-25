@@ -19,6 +19,8 @@ public class MediaTechInfo {
     private boolean video;
     private boolean image;
     private boolean valid;
+    private boolean hasAudio;
+    private boolean audioKnown;
 
     public static MediaTechInfo fromMetadata(JellyfinItemMetadata metadata) {
         MediaTechInfo info = new MediaTechInfo();
@@ -61,6 +63,16 @@ public class MediaTechInfo {
                 }
                 if (source.getSize() != null && source.getSize() > info.fileSize) {
                     info.fileSize = source.getSize();
+                }
+                // Whenever a source exposes its stream list we can determine audio presence.
+                if (source.getMediaStreams() != null) {
+                    info.audioKnown = true;
+                    for (JellyfinMediaStream s : source.getMediaStreams()) {
+                        if (s != null && s.getType() != null
+                                && s.getType().toLowerCase(Locale.ROOT).contains("audio")) {
+                            info.hasAudio = true;
+                        }
+                    }
                 }
             }
         }
@@ -165,6 +177,20 @@ public class MediaTechInfo {
     }
 
     /**
+     * @return true when an audio stream was detected
+     */
+    public boolean isHasAudio() {
+        return hasAudio;
+    }
+
+    /**
+     * @return true when audio presence could actually be determined (stream info available)
+     */
+    public boolean isAudioKnown() {
+        return audioKnown;
+    }
+
+    /**
      * Indicates whether the API-derived facts are incomplete and ffprobe should
      * be consulted to fill the gaps.
      *
@@ -208,6 +234,10 @@ public class MediaTechInfo {
         }
         if (fileSize <= 0 && probe.getFileSize() > 0) {
             fileSize = probe.getFileSize();
+        }
+        if (!audioKnown && probe.isAudioKnown()) {
+            hasAudio = probe.isHasAudio();
+            audioKnown = true;
         }
         valid = width > 0 && height > 0;
     }

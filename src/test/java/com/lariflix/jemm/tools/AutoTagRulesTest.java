@@ -3,6 +3,7 @@ package com.lariflix.jemm.tools;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 public class AutoTagRulesTest {
@@ -102,6 +103,74 @@ public class AutoTagRulesTest {
     }
 
     @Test
+    public void noAudioTagForSilentVideo() {
+        // tech() builds a video with only a video stream -> audio known, no audio present.
+        List<String> tags = rules.compute(tech(1920, 1080, 30, 8_000_000, true, false));
+        assertTrue(tags.contains(ManagedAutoTags.NO_AUDIO));
+    }
+
+    @Test
+    public void noNoAudioTagWhenAudioPresent() {
+        List<String> tags = rules.compute(videoWithAudio(1920, 1080, 30, 8_000_000));
+        assertFalse(tags.contains(ManagedAutoTags.NO_AUDIO));
+    }
+
+    @Test
+    public void categoryTogglesLimitComputedTags() {
+        AutoTagRules.Config config = new AutoTagRules.Config();
+        config.orientation = true;
+        config.resolution = false;
+        config.fps = false;
+        config.quality = false;
+        config.noAudio = false;
+        List<String> tags = rules.compute(tech(1920, 1080, 30, 8_000_000, true, false), config);
+        assertTrue(tags.contains(ManagedAutoTags.HORIZONTAL));
+        assertFalse(tags.contains(ManagedAutoTags.FULL_HD));
+        assertFalse(tags.contains(ManagedAutoTags.NO_AUDIO));
+        assertTrue(tags.stream().noneMatch(t -> t.startsWith("QR")));
+    }
+
+    @Test
+    public void authoritativeCategoriesReflectConfigAndDeterminability() {
+        AutoTagRules.Config config = new AutoTagRules.Config();
+        config.quality = false; // disabled -> not authoritative even if computable
+        EnumSet<ManagedAutoTags.Category> scope =
+                rules.authoritativeCategories(tech(1920, 1080, 30, 8_000_000, true, false), config);
+        assertTrue(scope.contains(ManagedAutoTags.Category.ORIENTATION));
+        assertTrue(scope.contains(ManagedAutoTags.Category.RESOLUTION));
+        assertTrue(scope.contains(ManagedAutoTags.Category.FPS));
+        assertTrue(scope.contains(ManagedAutoTags.Category.AUDIO));
+        assertFalse(scope.contains(ManagedAutoTags.Category.QUALITY));
+    }
+
+    @Test
+    public void syncScopeLeavesDisabledCategoryTagsUntouched() {
+        ArrayList<String> existing = new ArrayList<>();
+        existing.add("manual");
+        existing.add("vertical"); // orientation, in scope -> replaced
+        existing.add("HD");       // resolution, out of scope -> preserved
+        List<String> computed = List.of("horizontal");
+        EnumSet<ManagedAutoTags.Category> scope = EnumSet.of(ManagedAutoTags.Category.ORIENTATION);
+
+        ArrayList<String> synced = ManagedAutoTags.sync(existing, computed, scope);
+        assertNotNull(synced);
+        assertTrue(synced.contains("manual"));
+        assertTrue(synced.contains("HD"));
+        assertTrue(synced.contains("horizontal"));
+        assertFalse(synced.contains("vertical"));
+    }
+
+    @Test
+    public void categoryClassification() {
+        assertEquals(ManagedAutoTags.Category.ORIENTATION, ManagedAutoTags.category("vertical"));
+        assertEquals(ManagedAutoTags.Category.RESOLUTION, ManagedAutoTags.category("8K"));
+        assertEquals(ManagedAutoTags.Category.FPS, ManagedAutoTags.category("high fps"));
+        assertEquals(ManagedAutoTags.Category.QUALITY, ManagedAutoTags.category("QR0"));
+        assertEquals(ManagedAutoTags.Category.AUDIO, ManagedAutoTags.category("No Audio"));
+        assertNull(ManagedAutoTags.category("my manual tag"));
+    }
+
+    @Test
     public void managedSyncKeepsManualTags() {
         ArrayList<String> existing = new ArrayList<>();
         existing.add("manual");
@@ -126,6 +195,32 @@ public class AutoTagRulesTest {
 
         List<String> computed = List.of("vertical", "FULL HD");
         assertNull(ManagedAutoTags.sync(existing, computed));
+    }
+
+    private MediaTechInfo videoWithAudio(int w, int h, double fps, long bitrate) {
+        com.lariflix.jemm.dtos.JellyfinItemMetadata metadata = new com.lariflix.jemm.dtos.JellyfinItemMetadata();
+        metadata.setMediaType("Video");
+        metadata.setType("Movie");
+        com.lariflix.jemm.dtos.JellyfinMediaSource source = new com.lariflix.jemm.dtos.JellyfinMediaSource();
+        source.setBitrate(bitrate);
+        source.setSize(5_000_000L);
+        com.lariflix.jemm.dtos.JellyfinMediaStream video = new com.lariflix.jemm.dtos.JellyfinMediaStream();
+        video.setType("Video");
+        video.setWidth(w);
+        video.setHeight(h);
+        video.setAverageFrameRate(fps);
+        video.setBitRate(bitrate);
+        video.setIsDefault(true);
+        com.lariflix.jemm.dtos.JellyfinMediaStream audio = new com.lariflix.jemm.dtos.JellyfinMediaStream();
+        audio.setType("Audio");
+        java.util.ArrayList<com.lariflix.jemm.dtos.JellyfinMediaStream> streams = new java.util.ArrayList<>();
+        streams.add(video);
+        streams.add(audio);
+        source.setMediaStreams(streams);
+        java.util.ArrayList<com.lariflix.jemm.dtos.JellyfinMediaSource> sources = new java.util.ArrayList<>();
+        sources.add(source);
+        metadata.setMediaSources(sources);
+        return MediaTechInfo.fromMetadata(metadata);
     }
 
     private MediaTechInfo imageTech(int w, int h, long sizeBytes) {
