@@ -3,7 +3,9 @@ package com.lariflix.jemm.tagteam;
 import com.lariflix.jemm.tagteam.model.AssignKind;
 import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagNode;
+import com.lariflix.jemm.tagteam.model.RequireMode;
 import com.lariflix.jemm.tagteam.model.TagRequire;
+import com.lariflix.jemm.tagteam.model.TagRequires;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -115,7 +117,7 @@ public class TreeWalkerTest {
 
         TagNode calm = node("Calm", false, "calm");
         TagNode duoOnly = node("Duo Mood", false, "duoMood");
-        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        duoOnly.setRequires(TagRequires.single("Type", "Duo"));
         TagTree mood = tree("Mood", false, calm, duoOnly);
 
         TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
@@ -135,7 +137,7 @@ public class TreeWalkerTest {
         TagTree type = tree("Type", false, duo);
 
         TagNode duoOnly = node("Duo Mood", false, "duoMood");
-        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        duoOnly.setRequires(TagRequires.single("Type", "Duo"));
         TagTree mood = tree("Mood", false, duoOnly);
 
         TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
@@ -150,7 +152,7 @@ public class TreeWalkerTest {
     @Test
     public void allGatedRootChipsMarksTreeWalkedAndAdvances() {
         TagNode gated = node("Gated", false, "gated");
-        gated.setRequires(new TagRequire("Type", "Duo"));
+        gated.setRequires(TagRequires.single("Type", "Duo"));
         TagTree mood = tree("Mood", false, gated);
         TagTree after = tree("After", false, node("z", false, "z"));
 
@@ -165,7 +167,7 @@ public class TreeWalkerTest {
         TagNode duo = node("Duo", false, "duo");
         TagTree type = tree("Type", false, duo);
         TagNode duoOnly = node("Duo Mood", false, "duoMood");
-        duoOnly.setRequires(new TagRequire("Type", "Duo"));
+        duoOnly.setRequires(TagRequires.single("Type", "Duo"));
         TagTree mood = tree("Mood", false, duoOnly, node("Always", false, "always"));
 
         TreeWalker walker = new TreeWalker(new ArrayList<>(Arrays.asList(type, mood)));
@@ -174,5 +176,44 @@ public class TreeWalkerTest {
         List<String> labels = walker.currentOptions().stream()
                 .map(TagNode::getLabel).collect(Collectors.toList());
         assertEquals(Collections.singletonList("Always"), labels);
+    }
+
+    @Test
+    public void requiresAnyOrAllSemantics() {
+        TagNode duo = node("Duo", false, "duo");
+        TagNode indoor = node("Indoor", false, "indoor");
+        TagNode outdoor = node("Outdoor", false, "outdoor");
+        TagTree type = tree("Type", false, duo);
+        TagTree setting = tree("Setting", true, indoor, outdoor);
+
+        TagNode anyChip = node("AnyChip", false, "any");
+        anyChip.setRequires(new TagRequires(RequireMode.ANY, new ArrayList<>(Arrays.asList(
+                new TagRequire("Type", "Duo"),
+                new TagRequire("Setting", "Indoor")))));
+
+        TagNode allChip = node("AllChip", false, "all");
+        allChip.setRequires(new TagRequires(RequireMode.ALL, new ArrayList<>(Arrays.asList(
+                new TagRequire("Type", "Duo"),
+                new TagRequire("Setting", "Indoor")))));
+
+        TagTree mood = tree("Mood", false, anyChip, allChip);
+
+        // Duo only → ANY visible, ALL hidden
+        TreeWalker w1 = new TreeWalker(new ArrayList<>(Arrays.asList(type, setting, mood)));
+        w1.selectSingle(duo);
+        w1.confirmMultiSelect(Collections.emptyList()); // Setting: pick nothing
+        List<String> labels1 = w1.currentOptions().stream()
+                .map(TagNode::getLabel).collect(Collectors.toList());
+        assertTrue(labels1.contains("AnyChip"));
+        assertFalse(labels1.contains("AllChip"));
+
+        // Duo + Indoor → both visible
+        TreeWalker w2 = new TreeWalker(new ArrayList<>(Arrays.asList(type, setting, mood)));
+        w2.selectSingle(duo);
+        w2.confirmMultiSelect(Collections.singletonList(indoor));
+        List<String> labels2 = w2.currentOptions().stream()
+                .map(TagNode::getLabel).collect(Collectors.toList());
+        assertTrue(labels2.contains("AnyChip"));
+        assertTrue(labels2.contains("AllChip"));
     }
 }

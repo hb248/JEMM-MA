@@ -2,7 +2,7 @@ package com.lariflix.jemm.tagteam;
 
 import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagNode;
-import com.lariflix.jemm.tagteam.model.TagRequire;
+import com.lariflix.jemm.tagteam.model.TagRequires;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -26,9 +26,9 @@ import java.util.Set;
  * then left untouched). The walker records every {@link TagAssign} chosen and the set of trees
  * that were actually walked (not skipped).</p>
  *
- * <p>Nodes with {@link TagRequire} are hidden unless a matching label was selected in that
- * prerequisite tree earlier on this stop. Frames that become empty after filtering advance
- * automatically; an empty root frame still marks the tree as walked.</p>
+ * <p>Nodes with {@link TagRequires} are hidden unless their prerequisite group is satisfied
+ * (any/all of the listed earlier-tree selections). Frames that become empty after filtering
+ * advance automatically; an empty root frame still marks the tree as walked.</p>
  */
 public class TreeWalker {
 
@@ -157,21 +157,11 @@ public class TreeWalker {
     }
 
     private boolean isRequirementSatisfied(TagNode node) {
-        TagRequire req = node.getRequires();
+        TagRequires req = node.getRequires();
         if (req == null || !req.isSet()) {
             return true;
         }
-        Set<String> labels = selectedByTree.get(req.getTree().trim().toLowerCase(Locale.ROOT));
-        if (labels == null || labels.isEmpty()) {
-            return false;
-        }
-        String want = req.getLabel().trim();
-        for (String selected : labels) {
-            if (selected != null && selected.equalsIgnoreCase(want)) {
-                return true;
-            }
-        }
-        return false;
+        return req.isSatisfiedBy(selectedByTree);
     }
 
     // --- state queries ------------------------------------------------------

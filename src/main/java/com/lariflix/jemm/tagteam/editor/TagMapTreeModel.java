@@ -125,7 +125,7 @@ public class TagMapTreeModel implements TreeModel {
                 label = label + " (" + n.getAssign().size() + ")";
             }
             if (n.getRequires() != null && n.getRequires().isSet()) {
-                label = label + " ⇢ " + n.getRequires().getTree() + "/" + n.getRequires().getLabel();
+                label = label + " ⇢ " + n.getRequires().outlineMarker();
             }
             return label;
         }

@@ -2,6 +2,7 @@ package com.lariflix.jemm.forms;
 
 import com.lariflix.jemm.tagteam.TagMapLoader;
 import com.lariflix.jemm.tagteam.TagMapStore;
+import com.lariflix.jemm.tagteam.editor.RequiresEditDialog;
 import com.lariflix.jemm.tagteam.editor.TagMapTreeModel;
 import com.lariflix.jemm.tagteam.editor.TreeGraphPreviewPanel;
 import com.lariflix.jemm.tagteam.model.AssignKind;
@@ -9,6 +10,7 @@ import com.lariflix.jemm.tagteam.model.TagAssign;
 import com.lariflix.jemm.tagteam.model.TagMap;
 import com.lariflix.jemm.tagteam.model.TagNode;
 import com.lariflix.jemm.tagteam.model.TagRequire;
+import com.lariflix.jemm.tagteam.model.TagRequires;
 import com.lariflix.jemm.tagteam.model.TagTree;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -77,7 +79,8 @@ public class TagMapEditorWindow extends JDialog {
     private final JTextField nodeLabelField = new JTextField();
     private final JCheckBox nodeMultiBox = new JCheckBox("Multi-select (several of this node's children)");
     private final JCheckBox nodeExclusiveBox = new JCheckBox("Exclusive (click ends multi-select)");
-    private final JComboBox<RequireChoice> requiresCombo = new JComboBox<>();
+    private final JLabel requiresSummaryLabel = new JLabel("(none)");
+    private final JButton requiresEditBtn = new JButton("Edit…");
     private final AssignTableModel assignModel = new AssignTableModel();
     private final JTable assignTable = new JTable(assignModel);
 
@@ -271,8 +274,12 @@ public class TagMapEditorWindow extends JDialog {
         top.add(new JLabel("Only if selected"), c);
         c.gridx = 1;
         c.weightx = 1;
-        requiresCombo.setToolTipText("Hide this chip unless the chosen node was selected in an earlier tree.");
-        top.add(requiresCombo, c);
+        JPanel requiresRow = new JPanel(new BorderLayout(6, 0));
+        requiresSummaryLabel.setToolTipText(
+                "Hide this chip unless the chosen earlier-tree node(s) were selected (any/all).");
+        requiresRow.add(requiresSummaryLabel, BorderLayout.CENTER);
+        requiresRow.add(requiresEditBtn, BorderLayout.EAST);
+        top.add(requiresRow, c);
 
         assignTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         assignTable.setFillsViewportHeight(true);
@@ -394,21 +401,7 @@ public class TagMapEditorWindow extends JDialog {
             refreshPreview();
             markDirty();
         });
-        requiresCombo.addActionListener(e -> {
-            if (suppressDetailEvents || !(selected instanceof TagNode)) {
-                return;
-            }
-            RequireChoice choice = (RequireChoice) requiresCombo.getSelectedItem();
-            TagNode node = (TagNode) selected;
-            if (choice == null || choice.require == null) {
-                node.setRequires(null);
-            } else {
-                node.setRequires(new TagRequire(choice.require.getTree(), choice.require.getLabel()));
-            }
-            treeModel.nodeChanged(selected);
-            refreshPreview();
-            markDirty();
-        });
+        requiresEditBtn.addActionListener(e -> onEditRequires());
         assignModel.setChangeListener(() -> {
             if (!suppressDetailEvents && selected instanceof TagNode) {
                 treeModel.nodeChanged(selected);
@@ -497,12 +490,11 @@ public class TagMapEditorWindow extends JDialog {
                 nodeMultiBox.setSelected(n.isMultiSelect());
                 nodeExclusiveBox.setSelected(n.isExclusive());
                 assignModel.bind(n);
-                populateRequiresCombo(n, enclosing);
+                refreshRequiresSummary(n);
                 detailCards.show(detailHost, "node");
                 if (n.getRequires() != null && n.getRequires().isSet()
-                        && !requirementTargetExists(n.getRequires())) {
-                    statusLabel.setText("Warning: requires " + n.getRequires().getTree() + "/"
-                            + n.getRequires().getLabel() + " — target not found in map.");
+                        && !requirementTargetsExist(n.getRequires())) {
+                    statusLabel.setText("Warning: some requires targets are missing from the map.");
                 }
             } else {
                 showEmptyDetail();
@@ -703,45 +695,57 @@ public class TagMapEditorWindow extends JDialog {
         };
     }
 
-    private void populateRequiresCombo(TagNode current, TagTree enclosing) {
-        requiresCombo.removeAllItems();
-        requiresCombo.addItem(RequireChoice.none());
+    private void refreshRequiresSummary(TagNode node) {
+        if (node == null || node.getRequires() == null || !node.getRequires().isSet()) {
+            requiresSummaryLabel.setText("(none)");
+        } else {
+            requiresSummaryLabel.setText(node.getRequires().summary());
+        }
+    }
+
+    private void onEditRequires() {
+        if (!(selected instanceof TagNode)) {
+            return;
+        }
+        TagNode node = (TagNode) selected;
+        TagTree enclosing = treeModel.enclosingTree(node);
+        List<RequiresEditDialog.Candidate> candidates = collectRequireCandidates(node, enclosing);
+        RequiresEditDialog dialog = new RequiresEditDialog(this, node.getRequires(), candidates);
+        dialog.setVisible(true);
+        if (!dialog.wasAccepted()) {
+            return;
+        }
+        node.setRequires(dialog.getResult());
+        refreshRequiresSummary(node);
+        treeModel.nodeChanged(node);
+        refreshPreview();
+        markDirty();
+        if (node.getRequires() != null && node.getRequires().isSet()
+                && !requirementTargetsExist(node.getRequires())) {
+            statusLabel.setText("Warning: some requires targets are missing from the map.");
+        } else {
+            statusLabel.setText(" ");
+        }
+    }
+
+    private List<RequiresEditDialog.Candidate> collectRequireCandidates(TagNode current, TagTree enclosing) {
+        List<RequiresEditDialog.Candidate> out = new ArrayList<>();
         int maxOrder = enclosing == null ? Integer.MAX_VALUE : enclosing.getOrder();
         List<TagNode> excluded = new ArrayList<>();
         excluded.add(current);
         collectDescendants(current, excluded);
-
-        RequireChoice selectedChoice = RequireChoice.none();
-        TagRequire currentReq = current.getRequires();
         for (TagTree tree : treeModel.getMap().getTrees()) {
             if (tree == null || tree.getOrder() >= maxOrder) {
                 continue;
             }
             String treeName = tree.getName() == null ? "" : tree.getName();
-            addRequireChoices(tree.getChildren(), treeName, excluded, currentReq);
+            collectCandidatesFromNodes(tree.getChildren(), treeName, excluded, out);
         }
-        // Ensure current requires stays selectable even if target is in same/later tree or missing.
-        if (currentReq != null && currentReq.isSet()) {
-            boolean found = false;
-            for (int i = 0; i < requiresCombo.getItemCount(); i++) {
-                RequireChoice c = requiresCombo.getItemAt(i);
-                if (c != null && c.matches(currentReq)) {
-                    selectedChoice = c;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                RequireChoice orphan = RequireChoice.of(currentReq.getTree(), currentReq.getLabel());
-                requiresCombo.addItem(orphan);
-                selectedChoice = orphan;
-            }
-        }
-        requiresCombo.setSelectedItem(selectedChoice);
+        return out;
     }
 
-    private void addRequireChoices(List<TagNode> nodes, String treeName, List<TagNode> excluded,
-            TagRequire currentReq) {
+    private void collectCandidatesFromNodes(List<TagNode> nodes, String treeName,
+            List<TagNode> excluded, List<RequiresEditDialog.Candidate> out) {
         if (nodes == null) {
             return;
         }
@@ -750,13 +754,9 @@ public class TagMapEditorWindow extends JDialog {
                 continue;
             }
             if (!excluded.contains(n) && n.getLabel() != null && !n.getLabel().isBlank()) {
-                RequireChoice choice = RequireChoice.of(treeName, n.getLabel().trim());
-                requiresCombo.addItem(choice);
-                if (currentReq != null && choice.matches(currentReq)) {
-                    // selection applied by caller
-                }
+                out.add(new RequiresEditDialog.Candidate(treeName, n.getLabel().trim()));
             }
-            addRequireChoices(n.getChildren(), treeName, excluded, currentReq);
+            collectCandidatesFromNodes(n.getChildren(), treeName, excluded, out);
         }
     }
 
@@ -781,6 +781,9 @@ public class TagMapEditorWindow extends JDialog {
         for (TagNode n : touched) {
             treeModel.nodeChanged(n);
         }
+        if (selected instanceof TagNode) {
+            refreshRequiresSummary((TagNode) selected);
+        }
     }
 
     private void retargetRequiresNode(String treeName, String oldLabel, String newLabel) {
@@ -794,6 +797,9 @@ public class TagMapEditorWindow extends JDialog {
         for (TagNode n : touched) {
             treeModel.nodeChanged(n);
         }
+        if (selected instanceof TagNode) {
+            refreshRequiresSummary((TagNode) selected);
+        }
     }
 
     private void retargetRequiresInNodes(List<TagNode> nodes, String matchTree, String matchLabel,
@@ -802,18 +808,38 @@ public class TagMapEditorWindow extends JDialog {
             return;
         }
         for (TagNode n : nodes) {
-            TagRequire req = n.getRequires();
-            if (req != null && req.isSet()
-                    && req.getTree().equalsIgnoreCase(matchTree)
-                    && (matchLabel == null || req.getLabel().equalsIgnoreCase(matchLabel))) {
-                req.setTree(newTree);
-                if (newLabel != null) {
-                    req.setLabel(newLabel);
+            TagRequires group = n.getRequires();
+            if (group != null && group.getItems() != null) {
+                boolean changed = false;
+                for (TagRequire req : group.getItems()) {
+                    if (req != null && req.isSet()
+                            && req.getTree().equalsIgnoreCase(matchTree)
+                            && (matchLabel == null || req.getLabel().equalsIgnoreCase(matchLabel))) {
+                        req.setTree(newTree);
+                        if (newLabel != null) {
+                            req.setLabel(newLabel);
+                        }
+                        changed = true;
+                    }
                 }
-                touched.add(n);
+                if (changed) {
+                    touched.add(n);
+                }
             }
             retargetRequiresInNodes(n.getChildren(), matchTree, matchLabel, newTree, newLabel, touched);
         }
+    }
+
+    private boolean requirementTargetsExist(TagRequires group) {
+        if (group == null || !group.isSet()) {
+            return true;
+        }
+        for (TagRequire req : group.getItems()) {
+            if (req != null && req.isSet() && !requirementTargetExists(req)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean requirementTargetExists(TagRequire req) {
@@ -842,35 +868,6 @@ public class TagMapEditorWindow extends JDialog {
             }
         }
         return false;
-    }
-
-    private static final class RequireChoice {
-        private final TagRequire require;
-        private final String display;
-
-        private RequireChoice(TagRequire require, String display) {
-            this.require = require;
-            this.display = display;
-        }
-
-        static RequireChoice none() {
-            return new RequireChoice(null, "(none)");
-        }
-
-        static RequireChoice of(String tree, String label) {
-            return new RequireChoice(new TagRequire(tree, label), tree + " / " + label);
-        }
-
-        boolean matches(TagRequire req) {
-            return require != null && req != null && require.isSet() && req.isSet()
-                    && require.getTree().equalsIgnoreCase(req.getTree())
-                    && require.getLabel().equalsIgnoreCase(req.getLabel());
-        }
-
-        @Override
-        public String toString() {
-            return display;
-        }
     }
 
     private static final class AssignTableModel extends AbstractTableModel {

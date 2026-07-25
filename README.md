@@ -45,7 +45,7 @@ Tag-Team Mode turns tagging into a quick, click-through workflow. It walks every
 - **One active tag map.** Edit it in **Tools → Tag Map Editor…** (tree outline + detail form + read-only structure preview with arrows). JSON remains fully supported via **Tools → Import Tag Map…** / **Export Tag Map…** (next to Metadata CSV Import/Export). The Tag-Team start dialog shows the active map and offers **Edit map…**. The map is stored as the single active file (`~/.jemm/tagmap.json` by default).
 - **Fast walk.** At start, stop metadata and the Jellyfin people/studios catalogs are preloaded. During the walk, applies stay **in memory**; **Finish & Close** (or Save when closing the window) POSTs all pending changes. Closing with unsaved work asks Save / Discard / Cancel.
 - **Decision trees.** A map has one or more named trees, walked in `order`. Each node is a chip you can click; a node may assign one or several tags/genres and/or lead to deeper chips. Single-select nodes descend automatically; multi-select nodes let you pick several children and then queue those branches in turn.
-- **Prerequisites (`requires`).** A chip may declare that it is only available when a specific node from an **earlier** tree was selected on this stop (`requires: { tree, label }`). Unmet chips are **hidden**. Put prerequisite trees first in `order`. In the Tag Map Editor, set this via *Only if selected*. If every chip in a tree is gated and hidden, that tree is still marked walked (with no picks).
+- **Prerequisites (`requires`).** A chip may require one or more earlier-tree picks: `{ "mode": "any"|"all", "items": [ { "tree", "label" }, … ] }`. `any` = OR, `all` = AND. Unmet chips are **hidden**. Legacy single `{ "tree", "label" }` still loads as `any` with one item. Put prerequisite trees first in `order`. In the editor: *Only if selected* → **Edit…** (checkboxes + Match any/all). If every chip in a tree is gated and hidden, that tree is still marked walked (with no picks).
 - **Exclusive chips (`exclusive`).** In a multi-select frame, a chip marked `exclusive: true` advances immediately with only that choice (like single-select) — it is not combined with other toggles. Set this in the editor via *Exclusive (click ends multi-select)*.
 - **Skips.** Skip the current tree, the current file, a whole folder (you still visit its files), or the rest of the current folder.
 - **File-type filter.** Choose up-front whether to walk videos only, videos + images, or all files.
@@ -71,7 +71,7 @@ A ready-to-edit example map ships as [`tagmap.example.json`](tagmap.example.json
         {
           "label": "Solo",       // chip text
           "multiSelect": false,  // may several of THIS node's children be picked?
-          "requires": null,      // optional: { "tree": "Type", "label": "Duo" } — hide unless that chip was picked earlier
+          "requires": null,      // optional: { "mode": "any"|"all", "items": [{ "tree", "label" }] } (legacy {tree,label} still loads)
           "exclusive": false,    // in a multi-select frame: click confirms only this chip and advances
           "assign": [            // tags/genres this chip sets (optional; empty = traversal only)
             { "kind": "tag",   "value": "solo" },

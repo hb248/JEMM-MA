@@ -1,6 +1,7 @@
 package com.lariflix.jemm.tagteam.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,7 +9,7 @@ import java.util.List;
  * A node (chip) in a tag tree. It carries an optional list of assignments (tags/genres);
  * an empty {@code assign} list makes the node traversal-only. {@code multiSelect} controls
  * whether the user may pick several of this node's children at once.
- * Optional {@link #requires} hides the chip unless that prerequisite was selected earlier.
+ * Optional {@link #requires} hides the chip unless prerequisites are satisfied.
  * Optional {@link #exclusive}: in a multi-select frame, clicking the chip confirms only
  * that chip and advances immediately (no combining with other toggles).
  */
@@ -19,7 +20,8 @@ public class TagNode {
     private List<TagAssign> assign = new ArrayList<>();
     private boolean multiSelect;
     private boolean exclusive;
-    private TagRequire requires;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private TagRequires requires;
     private List<TagNode> children = new ArrayList<>();
 
     public String getLabel() {
@@ -54,11 +56,11 @@ public class TagNode {
         this.exclusive = exclusive;
     }
 
-    public TagRequire getRequires() {
+    public TagRequires getRequires() {
         return requires;
     }
 
-    public void setRequires(TagRequire requires) {
+    public void setRequires(TagRequires requires) {
         this.requires = requires;
     }
 

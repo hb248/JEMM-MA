@@ -92,7 +92,13 @@
         },
         {
           "label": "Duo vibe",
-          "requires": { "tree": "Type", "label": "Duo" },
+          "requires": {
+            "mode": "any",
+            "items": [
+              { "tree": "Type", "label": "Duo" },
+              { "tree": "Setting", "label": "Indoor" }
+            ]
+          },
           "assign": [
             { "kind": "tag", "value": "duo vibe" }
           ]
