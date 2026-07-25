@@ -103,6 +103,8 @@ Auto Tags first uses the technical data Jellyfin already exposes (MediaStreams /
 - **Created-date bug fixed.** A folder’s created date is no longer taken from its premiere date; both are independent.
 - **List metadata is merged, not replaced.** Applying People/Genres/Studios/Tags merges (de-duplicated) with what the item already has. In **Library Content**, **Apply Changes** affects only the selected items.
 - **No more forced language/region.** Preferred metadata language/country is no longer forced to `pt-br` / `BR`; existing values are kept. (Metadata Cleaner can reset old `pt-br` / `BR` values if you want.)
+- **No more hardcoded ratings.** Upstream JEMM forced Community and Critic rating to `10` on folder Apply even when you never touched those fields. JEMM-MA leaves existing ratings alone; use **Metadata Cleaner** if you want them reset to `0`.
+- **No more silent Forced Sort Name rewrites.** Upstream save paths often copied Original Title (or the Name) into `ForcedSortName` as a side effect of unrelated updates. JEMM-MA posts the sort name you actually have (or leave empty). Only **Episode Namer** sets Original Title / Forced Sort Name when you opt into that checkbox.
 - **Automatic episode titles were removed** from “Apply for Library and Content”. That naming is now the opt-in **Episode Namer**, so untouched items keep their names.
 - **Content list loads full metadata** (People/Genres/Studios/Tags) so those fields display and merge correctly.
 
