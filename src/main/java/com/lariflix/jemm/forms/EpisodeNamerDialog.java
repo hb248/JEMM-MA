@@ -5,8 +5,9 @@ import com.lariflix.jemm.core.SaveItemMetadataDirect;
 import com.lariflix.jemm.dtos.JellyfinFolder;
 import com.lariflix.jemm.dtos.JellyfinFolders;
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
+import com.lariflix.jemm.dtos.JellyfinItemMetadata;
 import com.lariflix.jemm.tools.BatchJobResult;
-import com.lariflix.jemm.tools.MetadataCleanerService;
+import com.lariflix.jemm.tools.EpisodeNamerService;
 import com.lariflix.jemm.tools.SelectedItemsCollector;
 import com.lariflix.jemm.utils.JellyfinUtilFunctions;
 import java.awt.BorderLayout;
@@ -15,6 +16,7 @@ import java.awt.Frame;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
@@ -22,45 +24,65 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JRadioButton;
+import javax.swing.JSpinner;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
 
 /**
- * Clears selected metadata lists for recursively collected items.
+ * Assigns sequential episode names to all media under the selected libraries (recursive).
  */
-public class MetadataCleanerDialog extends JDialog {
+public class EpisodeNamerDialog extends JDialog {
 
     private final ConnectJellyfinAPI api;
     private final List<String> selectedFolderIds;
-    private final JCheckBox tagsBox = new JCheckBox("Tags", true);
-    private final JCheckBox peopleBox = new JCheckBox("People", false);
-    private final JCheckBox genresBox = new JCheckBox("Genres", false);
-    private final JCheckBox studiosBox = new JCheckBox("Studios", false);
-    private final JCheckBox prefLangCountryBox = new JCheckBox("Preferred language & country", false);
-    private final JCheckBox includeFoldersBox = new JCheckBox("Also clean the folders themselves (not just media)", false);
-    private final JLabel statusLabel = new JLabel("Choose metadata types to clear.");
+
+    private final JRadioButton useFolderNameRadio = new JRadioButton("Use each folder's name as base title", true);
+    private final JRadioButton useCustomPrefixRadio = new JRadioButton("Use this custom base title:");
+    private final JTextField customPrefixField = new JTextField(18);
+    private final JCheckBox setNameBox = new JCheckBox("Set Name", true);
+    private final JCheckBox setOriginalBox = new JCheckBox("Set Original Title & Sort Name", false);
+    private final JTextField separatorField = new JTextField(" - EP", 6);
+    private final JSpinner minDigitsSpinner = new JSpinner(new SpinnerNumberModel(2, 1, 6, 1));
+
+    private final JLabel statusLabel = new JLabel("Numbers items per folder in the order Jellyfin returns them.");
     private final JProgressBar progressBar = new JProgressBar();
-    private final JButton startButton = new JButton("Clear selected metadata");
+    private final JButton startButton = new JButton("Assign episode names");
 
     private String firstError;
 
-    public MetadataCleanerDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
-        super(owner, "JEMM - Metadata Cleaner", true);
+    public EpisodeNamerDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
+        super(owner, "JEMM - Episode Namer", true);
         this.api = api;
         this.selectedFolderIds = resolveFolderIds(instance, selectedFolderIndexes);
-        setSize(560, 300);
+        setSize(560, 340);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
 
-        JPanel options = new JPanel(new GridLayout(0, 1));
-        options.add(new JLabel("This cannot be undone. Clears lists on all media under selected libraries (recursive)."));
-        options.add(tagsBox);
-        options.add(peopleBox);
-        options.add(genresBox);
-        options.add(studiosBox);
-        options.add(prefLangCountryBox);
-        options.add(includeFoldersBox);
+        ButtonGroup baseGroup = new ButtonGroup();
+        baseGroup.add(useFolderNameRadio);
+        baseGroup.add(useCustomPrefixRadio);
+
+        JPanel prefixRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        prefixRow.add(useCustomPrefixRadio);
+        prefixRow.add(customPrefixField);
+
+        JPanel formatRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        formatRow.add(new JLabel("Separator:"));
+        formatRow.add(separatorField);
+        formatRow.add(new JLabel("Min digits:"));
+        formatRow.add(minDigitsSpinner);
+
+        JPanel options = new JPanel(new GridLayout(0, 1, 0, 2));
+        options.add(new JLabel("Applies to all media under the selected libraries (including subfolders)."));
+        options.add(useFolderNameRadio);
+        options.add(prefixRow);
+        options.add(setNameBox);
+        options.add(setOriginalBox);
+        options.add(formatRow);
         add(options, BorderLayout.NORTH);
 
         progressBar.setStringPainted(true);
@@ -76,6 +98,10 @@ public class MetadataCleanerDialog extends JDialog {
         buttons.add(startButton);
         buttons.add(closeButton);
         add(buttons, BorderLayout.SOUTH);
+
+        customPrefixField.setEnabled(false);
+        useFolderNameRadio.addActionListener(e -> customPrefixField.setEnabled(false));
+        useCustomPrefixRadio.addActionListener(e -> customPrefixField.setEnabled(true));
 
         if (selectedFolderIds.isEmpty()) {
             statusLabel.setText("Select one or more libraries first.");
@@ -101,21 +127,29 @@ public class MetadataCleanerDialog extends JDialog {
     }
 
     private void runJob() {
-        boolean tags = tagsBox.isSelected();
-        boolean people = peopleBox.isSelected();
-        boolean genres = genresBox.isSelected();
-        boolean studios = studiosBox.isSelected();
-        boolean prefLangCountry = prefLangCountryBox.isSelected();
-        boolean includeFolders = includeFoldersBox.isSelected();
-        if (!tags && !people && !genres && !studios && !prefLangCountry) {
-            JOptionPane.showMessageDialog(this, "Select at least one metadata type.", "Metadata Cleaner", JOptionPane.WARNING_MESSAGE);
+        final EpisodeNamerService.Config config = new EpisodeNamerService.Config();
+        config.useFolderName = useFolderNameRadio.isSelected();
+        config.customPrefix = customPrefixField.getText();
+        config.setName = setNameBox.isSelected();
+        config.setOriginalAndSort = setOriginalBox.isSelected();
+        config.separator = separatorField.getText();
+        config.minDigits = (Integer) minDigitsSpinner.getValue();
+
+        if (!config.setName && !config.setOriginalAndSort) {
+            JOptionPane.showMessageDialog(this, "Select at least one field to set (Name and/or Original Title).",
+                    "Episode Namer", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (config.useFolderName == false && config.customPrefix.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter a custom base title or use the folder name.",
+                    "Episode Namer", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "Clear the selected metadata types from all media under the selected libraries?\nThis cannot be undone.",
-                "Confirm Metadata Cleaner",
+                "Assign episode names to all media under the selected libraries?\nThis overwrites the selected name fields.",
+                "Confirm Episode Namer",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE);
         if (confirm != JOptionPane.YES_OPTION) {
@@ -132,34 +166,29 @@ public class MetadataCleanerDialog extends JDialog {
             protected BatchJobResult doInBackground() throws Exception {
                 BatchJobResult result = new BatchJobResult();
                 SelectedItemsCollector collector = new SelectedItemsCollector(api);
-                List<SelectedItemsCollector.CollectedItem> items = new ArrayList<>(collector.collectRecursive(selectedFolderIds));
-                if (includeFolders) {
-                    items.addAll(collector.collectFolders(selectedFolderIds));
-                }
+                List<SelectedItemsCollector.CollectedItem> items = collector.collectRecursive(selectedFolderIds);
                 result.total = items.size();
-                publish("Processing " + items.size() + " items...");
 
+                EpisodeNamerService namer = new EpisodeNamerService(api);
+                List<JellyfinItemMetadata> toSave = namer.apply(items, config);
+                result.skipped = items.size() - toSave.size();
+
+                publish("Saving " + toSave.size() + " items...");
                 javax.swing.SwingUtilities.invokeLater(() -> {
                     progressBar.setIndeterminate(false);
                     progressBar.setMinimum(0);
-                    progressBar.setMaximum(Math.max(1, items.size()));
+                    progressBar.setMaximum(Math.max(1, toSave.size()));
                     progressBar.setValue(0);
                 });
 
-                MetadataCleanerService cleaner = new MetadataCleanerService();
                 SaveItemMetadataDirect saver = new SaveItemMetadataDirect(api.getcBaseURL(), api.getcTokenApi());
                 int index = 0;
-                for (SelectedItemsCollector.CollectedItem item : items) {
+                for (JellyfinItemMetadata metadata : toSave) {
                     index++;
-                    publish("Item " + index + "/" + items.size());
+                    publish("Item " + index + "/" + toSave.size());
                     try {
-                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios, prefLangCountry);
-                        if (!changed) {
-                            result.skipped++;
-                        } else {
-                            saver.postUpdate(item.getMetadata());
-                            result.updated++;
-                        }
+                        saver.postUpdate(metadata);
+                        result.updated++;
                     } catch (Exception ex) {
                         result.failed++;
                         if (firstError == null) {
@@ -186,17 +215,18 @@ public class MetadataCleanerDialog extends JDialog {
                 try {
                     BatchJobResult result = get();
                     statusLabel.setText("Done.");
-                    StringBuilder msg = new StringBuilder(result.summary("Metadata Cleaner"));
+                    StringBuilder msg = new StringBuilder(result.summary("Episode Namer"));
                     if (result.skipped > 0) {
-                        msg.append("\n\nSkipped = nothing to remove (the selected lists were already empty).");
+                        msg.append("\n\nSkipped = names were already correct.");
                     }
                     if (result.failed > 0 && firstError != null) {
                         msg.append("\n\nFirst error:\n").append(firstError);
                     }
-                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, msg.toString(), "Metadata Cleaner",
+                    JOptionPane.showMessageDialog(EpisodeNamerDialog.this, msg.toString(), "Episode Namer",
                             result.failed > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, "Metadata Cleaner failed: " + ex.getMessage(), "Metadata Cleaner", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(EpisodeNamerDialog.this, "Episode Namer failed: " + ex.getMessage(),
+                            "Episode Namer", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };

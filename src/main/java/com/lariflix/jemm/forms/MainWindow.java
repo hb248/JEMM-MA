@@ -125,6 +125,14 @@ public class MainWindow extends javax.swing.JFrame {
         JMenuItem metadataCleanerMenuItem = new JMenuItem("Metadata Cleaner...");
         metadataCleanerMenuItem.addActionListener(evt -> openMetadataCleanerDialog());
         jMenu10.add(metadataCleanerMenuItem);
+
+        JMenuItem episodeNamerMenuItem = new JMenuItem("Episode Namer...");
+        episodeNamerMenuItem.addActionListener(evt -> openEpisodeNamerDialog());
+        jMenu10.add(episodeNamerMenuItem);
+
+        JMenuItem nameCleanupMenuItem = new JMenuItem("Name Cleanup...");
+        nameCleanupMenuItem.addActionListener(evt -> openNameCleanupDialog());
+        jMenu10.add(nameCleanupMenuItem);
     }
 
     /**
@@ -3517,8 +3525,8 @@ public class MainWindow extends javax.swing.JFrame {
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setDateCreated(transforDate.getFullDateFromSimple(jTextField3.getText().trim()));
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setPremiereDate(transforDate.getFullDateFromSimple(jTextField8.getText().trim()));
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCanDownload(false);
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setPreferredMetadataLanguage("pt-br");
-        instanceData.getFolders().getItems().get(nIndex).getMetadata().setPreferredMetadataCountryCode("BR");
+        // Preferred language / country are intentionally left untouched: keep whatever the folder
+        // already has instead of forcing pt-br / BR like the original tool did.
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setOfficialRating(jComboBox2.getSelectedItem() == null ? "" : jComboBox2.getSelectedItem().toString());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setCustomRating(jComboBox1.getSelectedItem() == null ? "" : jComboBox1.getSelectedItem().toString());
         instanceData.getFolders().getItems().get(nIndex).getMetadata().setOverview(jTextArea1.getText().trim());
@@ -3800,6 +3808,34 @@ public class MainWindow extends javax.swing.JFrame {
         }
         new MetadataCleanerDialog(this, connectAPI, instanceData, selected).setVisible(true);
         // Refresh the currently displayed folder so cleared metadata is reflected in the UI.
+        this.setFieldsValues();
+    }
+
+    private void openEpisodeNamerDialog() {
+        int[] selected = jList2.getSelectedIndices();
+        if (selected == null || selected.length == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Select one or more libraries in the left \"Libraries\" list first.\n"
+                    + "Episode Namer always works on the selected libraries (including their subfolders).",
+                    "Episode Namer", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new EpisodeNamerDialog(this, connectAPI, instanceData, selected).setVisible(true);
+        // Refresh the currently displayed folder so new names become visible.
+        this.setFieldsValues();
+    }
+
+    private void openNameCleanupDialog() {
+        int[] selected = jList2.getSelectedIndices();
+        if (selected == null || selected.length == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Select one or more libraries in the left \"Libraries\" list first.\n"
+                    + "Name Cleanup always works on the selected libraries (including their subfolders).",
+                    "Name Cleanup", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new NameCleanupDialog(this, connectAPI, instanceData, selected).setVisible(true);
+        // Refresh the currently displayed folder so cleaned names become visible.
         this.setFieldsValues();
     }
 

@@ -6,7 +6,7 @@ import com.lariflix.jemm.dtos.JellyfinFolder;
 import com.lariflix.jemm.dtos.JellyfinFolders;
 import com.lariflix.jemm.dtos.JellyfinInstanceDetails;
 import com.lariflix.jemm.tools.BatchJobResult;
-import com.lariflix.jemm.tools.MetadataCleanerService;
+import com.lariflix.jemm.tools.NameCleanupService;
 import com.lariflix.jemm.tools.SelectedItemsCollector;
 import com.lariflix.jemm.utils.JellyfinUtilFunctions;
 import java.awt.BorderLayout;
@@ -15,6 +15,7 @@ import java.awt.Frame;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
@@ -22,45 +23,50 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JRadioButton;
 import javax.swing.SwingWorker;
 import javax.swing.WindowConstants;
 
 /**
- * Clears selected metadata lists for recursively collected items.
+ * Cleans up episode-style names again for all media under the selected libraries (recursive).
  */
-public class MetadataCleanerDialog extends JDialog {
+public class NameCleanupDialog extends JDialog {
 
     private final ConnectJellyfinAPI api;
     private final List<String> selectedFolderIds;
-    private final JCheckBox tagsBox = new JCheckBox("Tags", true);
-    private final JCheckBox peopleBox = new JCheckBox("People", false);
-    private final JCheckBox genresBox = new JCheckBox("Genres", false);
-    private final JCheckBox studiosBox = new JCheckBox("Studios", false);
-    private final JCheckBox prefLangCountryBox = new JCheckBox("Preferred language & country", false);
-    private final JCheckBox includeFoldersBox = new JCheckBox("Also clean the folders themselves (not just media)", false);
-    private final JLabel statusLabel = new JLabel("Choose metadata types to clear.");
+
+    private final JRadioButton removeSuffixRadio = new JRadioButton("Remove trailing \" - EP##\" from Name", true);
+    private final JRadioButton resetFromPathRadio = new JRadioButton("Reset Name from the file name (from path)");
+    private final JRadioButton keepNameRadio = new JRadioButton("Leave Name unchanged");
+    private final JCheckBox clearTitlesBox = new JCheckBox("Clear Original Title & Sort Name", true);
+
+    private final JLabel statusLabel = new JLabel("Reverts the episode naming for the selected libraries.");
     private final JProgressBar progressBar = new JProgressBar();
-    private final JButton startButton = new JButton("Clear selected metadata");
+    private final JButton startButton = new JButton("Clean up names");
 
     private String firstError;
 
-    public MetadataCleanerDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
-        super(owner, "JEMM - Metadata Cleaner", true);
+    public NameCleanupDialog(Frame owner, ConnectJellyfinAPI api, JellyfinInstanceDetails instance, int[] selectedFolderIndexes) {
+        super(owner, "JEMM - Name Cleanup", true);
         this.api = api;
         this.selectedFolderIds = resolveFolderIds(instance, selectedFolderIndexes);
-        setSize(560, 300);
+        setSize(520, 300);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
 
-        JPanel options = new JPanel(new GridLayout(0, 1));
-        options.add(new JLabel("This cannot be undone. Clears lists on all media under selected libraries (recursive)."));
-        options.add(tagsBox);
-        options.add(peopleBox);
-        options.add(genresBox);
-        options.add(studiosBox);
-        options.add(prefLangCountryBox);
-        options.add(includeFoldersBox);
+        ButtonGroup nameGroup = new ButtonGroup();
+        nameGroup.add(removeSuffixRadio);
+        nameGroup.add(resetFromPathRadio);
+        nameGroup.add(keepNameRadio);
+
+        JPanel options = new JPanel(new GridLayout(0, 1, 0, 2));
+        options.add(new JLabel("This cannot be undone. Affects all media under selected libraries (recursive)."));
+        options.add(new JLabel("Name:"));
+        options.add(removeSuffixRadio);
+        options.add(resetFromPathRadio);
+        options.add(keepNameRadio);
+        options.add(clearTitlesBox);
         add(options, BorderLayout.NORTH);
 
         progressBar.setStringPainted(true);
@@ -101,21 +107,25 @@ public class MetadataCleanerDialog extends JDialog {
     }
 
     private void runJob() {
-        boolean tags = tagsBox.isSelected();
-        boolean people = peopleBox.isSelected();
-        boolean genres = genresBox.isSelected();
-        boolean studios = studiosBox.isSelected();
-        boolean prefLangCountry = prefLangCountryBox.isSelected();
-        boolean includeFolders = includeFoldersBox.isSelected();
-        if (!tags && !people && !genres && !studios && !prefLangCountry) {
-            JOptionPane.showMessageDialog(this, "Select at least one metadata type.", "Metadata Cleaner", JOptionPane.WARNING_MESSAGE);
+        final NameCleanupService.Config config = new NameCleanupService.Config();
+        if (resetFromPathRadio.isSelected()) {
+            config.nameMode = NameCleanupService.NameMode.RESET_FROM_PATH;
+        } else if (keepNameRadio.isSelected()) {
+            config.nameMode = NameCleanupService.NameMode.KEEP;
+        } else {
+            config.nameMode = NameCleanupService.NameMode.REMOVE_EP_SUFFIX;
+        }
+        config.clearOriginalAndSort = clearTitlesBox.isSelected();
+
+        if (config.nameMode == NameCleanupService.NameMode.KEEP && !config.clearOriginalAndSort) {
+            JOptionPane.showMessageDialog(this, "Nothing selected to clean up.", "Name Cleanup", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "Clear the selected metadata types from all media under the selected libraries?\nThis cannot be undone.",
-                "Confirm Metadata Cleaner",
+                "Clean up names for all media under the selected libraries?\nThis cannot be undone.",
+                "Confirm Name Cleanup",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE);
         if (confirm != JOptionPane.YES_OPTION) {
@@ -132,10 +142,7 @@ public class MetadataCleanerDialog extends JDialog {
             protected BatchJobResult doInBackground() throws Exception {
                 BatchJobResult result = new BatchJobResult();
                 SelectedItemsCollector collector = new SelectedItemsCollector(api);
-                List<SelectedItemsCollector.CollectedItem> items = new ArrayList<>(collector.collectRecursive(selectedFolderIds));
-                if (includeFolders) {
-                    items.addAll(collector.collectFolders(selectedFolderIds));
-                }
+                List<SelectedItemsCollector.CollectedItem> items = collector.collectRecursive(selectedFolderIds);
                 result.total = items.size();
                 publish("Processing " + items.size() + " items...");
 
@@ -146,14 +153,14 @@ public class MetadataCleanerDialog extends JDialog {
                     progressBar.setValue(0);
                 });
 
-                MetadataCleanerService cleaner = new MetadataCleanerService();
+                NameCleanupService cleaner = new NameCleanupService();
                 SaveItemMetadataDirect saver = new SaveItemMetadataDirect(api.getcBaseURL(), api.getcTokenApi());
                 int index = 0;
                 for (SelectedItemsCollector.CollectedItem item : items) {
                     index++;
                     publish("Item " + index + "/" + items.size());
                     try {
-                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios, prefLangCountry);
+                        boolean changed = cleaner.apply(item.getMetadata(), config);
                         if (!changed) {
                             result.skipped++;
                         } else {
@@ -186,17 +193,18 @@ public class MetadataCleanerDialog extends JDialog {
                 try {
                     BatchJobResult result = get();
                     statusLabel.setText("Done.");
-                    StringBuilder msg = new StringBuilder(result.summary("Metadata Cleaner"));
+                    StringBuilder msg = new StringBuilder(result.summary("Name Cleanup"));
                     if (result.skipped > 0) {
-                        msg.append("\n\nSkipped = nothing to remove (the selected lists were already empty).");
+                        msg.append("\n\nSkipped = nothing to clean (already clean).");
                     }
                     if (result.failed > 0 && firstError != null) {
                         msg.append("\n\nFirst error:\n").append(firstError);
                     }
-                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, msg.toString(), "Metadata Cleaner",
+                    JOptionPane.showMessageDialog(NameCleanupDialog.this, msg.toString(), "Name Cleanup",
                             result.failed > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(MetadataCleanerDialog.this, "Metadata Cleaner failed: " + ex.getMessage(), "Metadata Cleaner", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(NameCleanupDialog.this, "Name Cleanup failed: " + ex.getMessage(),
+                            "Name Cleanup", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };

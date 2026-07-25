@@ -7,6 +7,31 @@ Recommended for managing the metadata fields of private content not available on
 
 With JEMM, you can easily replicate the same metadata fields defined in a library to the child-items, export and import metadata from CSV files, print some reports about your media-inventory and others nice things! You can make just a little metadata update or make big changes massivelly!
 
+## About this fork
+This is a public fork of the original open-source JEMM. It keeps all the original functionality and adds a few batch tools plus some behavior fixes. All new tools live under the **Tools** menu and always work on the libraries selected in the left "Libraries" list, including their subfolders (recursive).
+
+### New tools
+- **Auto Tags** – Automatically adds tags based on the media's technical info: orientation (`vertical` / `horizontal` / `square`), frame rate (`low fps` / `standart fps` / `high fps`, videos only), resolution (`SD` / `HD` / `FULL HD` / `2K` / `4K`, plus `ULTRA RES` for very large images) and a quality rating (`QR1`, `QR2`, ...) derived from resolution vs. bitrate. It only adds/updates its own computed tags and never touches your manual tags.
+- **Metadata Cleaner** – Bulk-clears selected metadata (Tags, People, Genres, Studios and/or Preferred language & country) so you can start clean before applying new logic. Optionally also cleans the folders themselves, not just the media.
+- **Episode Namer** – Assigns sequential episode-style names (e.g. `<base> - EP01`, `EP02`, ...). The base can be each folder's name or a custom prefix, numbering restarts per folder, and you choose whether to set the Name and/or the Original Title & Sort Name. This is now opt-in (see below).
+- **Name Cleanup** – Reverts the episode naming again: removes a trailing `" - EP##"` from the Name (or resets the Name from the file name) and can clear the Original Title & Sort Name.
+
+### Quality of life
+- **Remembered login.** After a successful login the Jellyfin server URL and API key are stored (via Java Preferences) and pre-filled on the next start, so you don't have to type them in every time.
+- **Detail grids follow keyboard navigation.** In the "Library Content" tab the People/Genres/Studios/Tags panels now update as you move the selection with the arrow keys. Previously they kept showing the item you had clicked before, which was confusing since the selection moved with the keys.
+
+### Changed / removed behavior
+- **Multi-selection everywhere.** "Apply Changes" in the "Library Content" tab now applies to every selected item (the original only handled a single item). Likewise, the tools and the left "Libraries" list act on all selected libraries, including their subfolders. When applying to several items, People/Genres/Studios/Tags are **merged** onto each item, not overwritten (see below).
+- **Optional fields are truly optional.** Fields that JEMM used to require but that Jellyfin does not require are no longer mandatory in JEMM, so you can save without filling them in.
+- **Created-date bug fixed.** A folder's created date is no longer taken from its premiere date; both dates are handled independently.
+- **List metadata is merged, not replaced.** Applying People/Genres/Studios/Tags now merges (de-duplicated) with what the item already has instead of overwriting it. In the "Library Content" tab, "Apply Changes" affects only the selected items.
+- **No more forced language/region.** The tool no longer forces the preferred metadata language/country to `pt-br` / `BR`; existing values are kept. (The Metadata Cleaner can reset old `pt-br` / `BR` values if you want.)
+- **Automatic episode titles were removed** from "Apply for Library and Content". That naming is now the opt-in **Episode Namer** tool, so untouched items keep their names.
+- **Content list loads full metadata** (People/Genres/Studios/Tags) so those fields display and merge correctly.
+
+### Known limitation
+On some Jellyfin server versions (e.g. 10.11.x, see jellyfin/jellyfin issue #17142) **adding** cast/crew (People) is not persisted by the server itself – this affects the official web client too and cannot be worked around from JEMM. Everything else (tags, genres, studios, ...) saves normally.
+
 ## To download a runnable file
 If you are not a developer or do not want to download the complete source-code and build it locally, you can do directly download the runnable file [jemm_runnable-jar-with-dependencies.jar](target/jemm_runnable-jar-with-dependencies.jar) (available at: root/target/jemm_runnable-jar-with-dependencies.jar). 
 **Java version 11 is required on your machine and you will need able an Api Key - through the "Administration options" in your Jellyfin instance.**

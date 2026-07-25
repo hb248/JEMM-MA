@@ -42,6 +42,56 @@ public class SelectedItemsCollector {
         return new ArrayList<>(byId.values());
     }
 
+    /**
+     * Collects the folder nodes themselves (the selected roots and every subfolder), loading each
+     * folder's metadata so callers can edit folder-level fields.
+     */
+    public List<CollectedItem> collectFolders(List<String> rootFolderIds) throws IOException, ParseException {
+        Map<String, CollectedItem> byId = new LinkedHashMap<>();
+        Set<String> visitedFolders = new HashSet<>();
+        if (rootFolderIds == null) {
+            return new ArrayList<>();
+        }
+        for (String rootId : rootFolderIds) {
+            if (rootId == null || rootId.isBlank()) {
+                continue;
+            }
+            collectFolderNode(rootId, byId, visitedFolders);
+        }
+        return new ArrayList<>(byId.values());
+    }
+
+    private void collectFolderNode(String folderId, Map<String, CollectedItem> byId, Set<String> visitedFolders)
+            throws IOException, ParseException {
+        if (!visitedFolders.add(folderId)) {
+            return;
+        }
+        if (!byId.containsKey(folderId)) {
+            LoadItemMetadata metaLoader = new LoadItemMetadata(
+                    api.getcBaseURL(),
+                    api.getcTokenApi(),
+                    api.getAdminUser().getId(),
+                    folderId);
+            JellyfinItemMetadata metadata = metaLoader.requestItemMetadata();
+            byId.put(folderId, new CollectedItem(folderId, folderId, metadata));
+        }
+
+        LoadItems folderLoader = new LoadItems(
+                api.getcBaseURL(),
+                api.getcTokenApi(),
+                api.getAdminUser().getId(),
+                folderId,
+                JellyfinParameters.JUST_SUBFOLDERS);
+        JellyfinItems subFolders = folderLoader.requestItems();
+        if (subFolders != null && subFolders.getItems() != null) {
+            for (JellyfinItem sub : subFolders.getItems()) {
+                if (sub != null && sub.getId() != null) {
+                    collectFolderNode(sub.getId(), byId, visitedFolders);
+                }
+            }
+        }
+    }
+
     private void collectFolder(String folderId, Map<String, CollectedItem> byId, Set<String> visitedFolders)
             throws IOException, ParseException {
         if (!visitedFolders.add(folderId)) {

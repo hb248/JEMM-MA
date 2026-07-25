@@ -9,10 +9,22 @@ import java.util.ArrayList;
 public class MetadataCleanerService {
 
     public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios) {
+        return clear(metadata, tags, people, genres, studios, false);
+    }
+
+    public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios,
+            boolean preferredLangCountry) {
         if (metadata == null) {
             return false;
         }
         boolean changed = false;
+        if (preferredLangCountry) {
+            if (isSet(metadata.getPreferredMetadataLanguage()) || isSet(metadata.getPreferredMetadataCountryCode())) {
+                metadata.setPreferredMetadataLanguage(null);
+                metadata.setPreferredMetadataCountryCode(null);
+                changed = true;
+            }
+        }
         if (tags && metadata.getTags() != null && !metadata.getTags().isEmpty()) {
             metadata.setTags(new ArrayList<>());
             changed = true;
@@ -35,5 +47,9 @@ public class MetadataCleanerService {
             changed = true;
         }
         return changed;
+    }
+
+    private static boolean isSet(String value) {
+        return value != null && !value.isBlank();
     }
 }
