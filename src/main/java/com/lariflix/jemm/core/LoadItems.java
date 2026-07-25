@@ -214,6 +214,7 @@ public class LoadItems {
         urlWithApiKey = urlWithApiKey.concat("?parentId=").concat(this.getcParentID());
         urlWithApiKey = urlWithApiKey.concat("&userId=").concat(this.getcUserAdminID());
         urlWithApiKey = urlWithApiKey.concat("&ApiKey=").concat(this.apiToken);
+        urlWithApiKey = urlWithApiKey.concat("&Fields=People,Genres,Studios,Tags,Overview,DateCreated,PremiereDate,ProductionYear,OfficialRating,CustomRating,SortName,OriginalTitle,ProviderIds,Path");
         
         if (this.getItemsType() == JellyfinParameters.JUST_ITEMS){
             urlWithApiKey = urlWithApiKey.concat("&filters=").concat("IsNotFolder");

@@ -107,7 +107,9 @@ public class MainWindow extends javax.swing.JFrame {
 
         // Update the content detail grids on keyboard navigation too, not only on mouse click.
         jTable5.getSelectionModel().addListSelectionListener(evt -> {
-            if (!evt.getValueIsAdjusting() && jTable5.getSelectedRow() >= 0) {
+            // Only refresh the detail grids for a single selected item. When several rows are
+            // selected the grids act as the "to apply" source, so we must not overwrite them.
+            if (!evt.getValueIsAdjusting() && jTable5.getSelectedRowCount() == 1) {
                 try {
                     this.setContentChilds();
                 } catch (RuntimeException ignored) {
@@ -3343,6 +3345,15 @@ public class MainWindow extends javax.swing.JFrame {
         final SaveItemMetadataDirect directSaver =
                 new SaveItemMetadataDirect(connectAPI.getcBaseURL(), connectAPI.getcTokenApi());
 
+        int peopleSent = 0;
+        int tagsSent = 0;
+        for (JellyfinItemMetadata m : itemsToSave) {
+            peopleSent += (m.getPeople() == null) ? 0 : m.getPeople().size();
+            tagsSent += (m.getTags() == null) ? 0 : m.getTags().size();
+        }
+        final int diagPeople = peopleSent;
+        final int diagTags = tagsSent;
+
         JDialog waitDiag = new JDialog(this, "Please wait...", true);
         waitDiag.setLayout(new BorderLayout());
         waitDiag.setSize(600, 140);
@@ -3399,7 +3410,10 @@ public class MainWindow extends javax.swing.JFrame {
                 waitDiag.dispose();
                 try {
                     int[] result = get();
-                    String msg = "Content update finished.\nUpdated: " + result[0] + "\nFailed: " + result[1];
+                    String msg = "Content update finished.\nUpdated: " + result[0] + "\nFailed: " + result[1]
+                            + "\n\nDiagnostics (sent to server across " + itemsToSave.size() + " item(s)):"
+                            + "\n- People entries: " + diagPeople
+                            + "\n- Tag entries: " + diagTags;
                     if (result[1] > 0 && firstError[0] != null) {
                         msg += "\n\nFirst error:\n" + firstError[0];
                     }
@@ -3667,36 +3681,46 @@ public class MainWindow extends javax.swing.JFrame {
         return savedItems;
     }
 
+    /**
+     * Pushes folder-level scalar metadata to every content row, but only for fields the user
+     * actually filled in the Library Metadata tab. Untouched fields (name, original title,
+     * sort name, empty values) are left as they are so nothing gets silently overwritten.
+     */
     private void applyFolderScalarsToContentTable() {
         int nSize = jTable5.getModel().getRowCount();
         String createdDate = jTextField3.getText() == null ? "" : jTextField3.getText().trim();
+        String premiere = jTextField8.getText() == null ? "" : jTextField8.getText().trim();
         String officialRating = jComboBox2.getSelectedItem() == null ? "" : jComboBox2.getSelectedItem().toString();
         String customRating = jComboBox1.getSelectedItem() == null ? "" : jComboBox1.getSelectedItem().toString();
         String overview = jTextArea1.getText() == null ? "" : jTextArea1.getText();
         int productionYear = 0;
         try {
-            String premiere = jTextField8.getText() == null ? "" : jTextField8.getText().trim();
             if (premiere.length() >= 10) {
                 productionYear = Integer.parseInt(premiere.substring(6, 10));
             }
-        } catch (Exception ignored) {
+        } catch (NumberFormatException ignored) {
             productionYear = 0;
         }
 
         for (int nI = 0; nI < nSize; nI++) {
-            jTable5.getModel().setValueAt(completeEpisodeName(jTextField2.getText(), nI), nI, 1);
-            jTable5.getModel().setValueAt(completeEpisodeName(jTextField7.getText(), nI), nI, 2);
-            jTable5.getModel().setValueAt(completeEpisodeName(jTextField6.getText(), nI), nI, 3);
-            jTable5.getModel().setValueAt(createdDate, nI, 4);
-            jTable5.getModel().setValueAt(createdDate, nI, 5);
-            jTable5.getModel().setValueAt("pt-br", nI, 6);
-            jTable5.getModel().setValueAt("BR", nI, 7);
-            jTable5.getModel().setValueAt(10, nI, 8);
-            jTable5.getModel().setValueAt(10, nI, 9);
-            jTable5.getModel().setValueAt(officialRating, nI, 10);
-            jTable5.getModel().setValueAt(customRating, nI, 11);
-            jTable5.getModel().setValueAt(productionYear, nI, 12);
-            jTable5.getModel().setValueAt(overview, nI, 14);
+            if (!createdDate.isEmpty()) {
+                jTable5.getModel().setValueAt(createdDate, nI, 4);
+            }
+            if (!premiere.isEmpty()) {
+                jTable5.getModel().setValueAt(premiere, nI, 5);
+            }
+            if (!officialRating.isEmpty()) {
+                jTable5.getModel().setValueAt(officialRating, nI, 10);
+            }
+            if (!customRating.isEmpty()) {
+                jTable5.getModel().setValueAt(customRating, nI, 11);
+            }
+            if (productionYear > 0) {
+                jTable5.getModel().setValueAt(productionYear, nI, 12);
+            }
+            if (!overview.isEmpty()) {
+                jTable5.getModel().setValueAt(overview, nI, 14);
+            }
         }
     }
 

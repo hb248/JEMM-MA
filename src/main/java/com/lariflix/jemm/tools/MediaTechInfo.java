@@ -65,6 +65,18 @@ public class MediaTechInfo {
             }
         }
 
+        // Fallback to the item-level Width/Height (Jellyfin exposes these for videos and photos)
+        // when no MediaStream provided usable dimensions.
+        if ((info.width <= 0 || info.height <= 0)) {
+            if (metadata.getWidth() != null && metadata.getWidth() > 0) {
+                info.width = metadata.getWidth();
+            }
+            if (metadata.getHeight() != null && metadata.getHeight() > 0) {
+                info.height = metadata.getHeight();
+            }
+        }
+        info.valid = info.width > 0 && info.height > 0;
+
         if (!info.valid && metadata.getAspectRatio() != null && !metadata.getAspectRatio().isBlank()) {
             // Keep invalid dimensions but allow orientation fallback via aspect ratio string in rules.
             info.valid = false;

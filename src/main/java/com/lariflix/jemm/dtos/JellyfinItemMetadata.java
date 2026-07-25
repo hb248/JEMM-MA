@@ -93,6 +93,10 @@ public class JellyfinItemMetadata {
     public ArrayList<String> tags;
     @JsonProperty("PrimaryImageAspectRatio") 
     public double primaryImageAspectRatio;
+    @JsonProperty("Width") 
+    public Integer width;
+    @JsonProperty("Height") 
+    public Integer height;
     @JsonProperty("VideoType") 
     public String videoType;
     @JsonProperty("LocationType") 
@@ -979,6 +983,22 @@ public class JellyfinItemMetadata {
      */
     public void setPrimaryImageAspectRatio(double primaryImageAspectRatio) {
         this.primaryImageAspectRatio = primaryImageAspectRatio;
+    }
+
+    public Integer getWidth() {
+        return width;
+    }
+
+    public void setWidth(Integer width) {
+        this.width = width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
+
+    public void setHeight(Integer height) {
+        this.height = height;
     }
 
     /**
