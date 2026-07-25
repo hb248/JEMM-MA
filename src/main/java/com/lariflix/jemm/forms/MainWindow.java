@@ -133,6 +133,10 @@ public class MainWindow extends javax.swing.JFrame {
         JMenuItem nameCleanupMenuItem = new JMenuItem("Name Cleanup...");
         nameCleanupMenuItem.addActionListener(evt -> openNameCleanupDialog());
         jMenu10.add(nameCleanupMenuItem);
+
+        JMenuItem tagTeamMenuItem = new JMenuItem("Tag-Team Mode...");
+        tagTeamMenuItem.addActionListener(evt -> openTagTeamModeDialog());
+        jMenu10.add(tagTeamMenuItem);
     }
 
     /**
@@ -3678,10 +3682,20 @@ public class MainWindow extends javax.swing.JFrame {
             item.getItemMetadata().setProductionYear(SafeTableValues.asInt(jTable5.getModel(), row, 12, 0));
             item.getItemMetadata().setOverview(SafeTableValues.asString(jTable5.getModel(), row, 14));
 
-            item.getItemMetadata().setPeople(MetadataListMerge.mergePeople(item.getItemMetadata().getPeople(), sourcePeople));
-            item.getItemMetadata().setGenreItems(MetadataListMerge.mergeGenres(item.getItemMetadata().getGenreItems(), sourceGenres));
-            item.getItemMetadata().setStudios(MetadataListMerge.mergeStudios(item.getItemMetadata().getStudios(), sourceStudios));
-            item.getItemMetadata().setTags(MetadataListMerge.mergeTags(item.getItemMetadata().getTags(), sourceTags));
+            // Single selection: detail grids are the authoritative edited state for that item
+            // (so removals work). Multi-selection: grids are an "add these" source → merge.
+            boolean replaceLists = !lUpdateFromFolder && rowsToProcess.length == 1;
+            if (replaceLists) {
+                item.getItemMetadata().setPeople(MetadataListMerge.dedupePeople(sourcePeople));
+                item.getItemMetadata().setGenreItems(MetadataListMerge.dedupeGenres(sourceGenres));
+                item.getItemMetadata().setStudios(MetadataListMerge.dedupeStudios(sourceStudios));
+                item.getItemMetadata().setTags(MetadataListMerge.dedupeTags(sourceTags));
+            } else {
+                item.getItemMetadata().setPeople(MetadataListMerge.mergePeople(item.getItemMetadata().getPeople(), sourcePeople));
+                item.getItemMetadata().setGenreItems(MetadataListMerge.mergeGenres(item.getItemMetadata().getGenreItems(), sourceGenres));
+                item.getItemMetadata().setStudios(MetadataListMerge.mergeStudios(item.getItemMetadata().getStudios(), sourceStudios));
+                item.getItemMetadata().setTags(MetadataListMerge.mergeTags(item.getItemMetadata().getTags(), sourceTags));
+            }
 
             savedItems.add(item.getItemMetadata());
         }
@@ -3836,6 +3850,20 @@ public class MainWindow extends javax.swing.JFrame {
         }
         new NameCleanupDialog(this, connectAPI, instanceData, selected).setVisible(true);
         // Refresh the currently displayed folder so cleaned names become visible.
+        this.setFieldsValues();
+    }
+
+    private void openTagTeamModeDialog() {
+        int[] selected = jList2.getSelectedIndices();
+        if (selected == null || selected.length == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Select one or more libraries in the left \"Libraries\" list first.\n"
+                    + "Tag-Team Mode walks the selected libraries (including their subfolders).",
+                    "Tag-Team Mode", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new TagTeamStartDialog(this, connectAPI, instanceData, selected).setVisible(true);
+        // Refresh the currently displayed folder so applied metadata becomes visible.
         this.setFieldsValues();
     }
 

@@ -36,6 +36,50 @@ Credit and thanks to [Cesar Bianchi](https://github.com/CesarBianchi) for the or
 - **Metadata Cleaner** – Bulk-clears selected metadata (Tags, People, Genres, Studios and/or preferred language & country) so you can start clean before applying new logic. Tags can be cleared completely or, with the *only auto-tags* option, limited to the tags produced by Auto Tags so your manual tags survive. Optionally also cleans the folders themselves, not just the media.
 - **Episode Namer** – Assigns sequential episode-style names (e.g. `<base> - EP01`, `EP02`, …). The base can be each folder’s name or a custom prefix; numbering restarts per folder; you choose Name and/or Original Title & Sort Name. Opt-in only (see below).
 - **Name Cleanup** – Reverts episode naming: removes a trailing `" - EP##"` from the Name (or resets the Name from the file name) and can clear Original Title & Sort Name.
+- **Tag-Team Mode** – A guided, keyboard-fast pass over the selected libraries that walks user-defined tag/genre decision trees (your "tag map") for each folder and file, with always-on Actors / Studios / Release-date panels and filename-based suggestions. See below.
+
+#### Tag-Team Mode
+
+Tag-Team Mode turns tagging into a quick, click-through workflow. It walks every **stop** in the selected libraries — each folder, then its files, recursively — and for each stop lets you click through your **tag map** (decision trees) while editing actors, studios and the release date on the side.
+
+- **One active tag map.** The map is authored as JSON (a visual editor is planned) and kept as the single active map by the app. Use **Import…** / **Export…** in the start dialog to bring a JSON file in or write the current one out.
+- **Fast walk.** At start, stop metadata and the Jellyfin people/studios catalogs are preloaded. During the walk, applies stay **in memory**; **Finish & Close** (or Save when closing the window) POSTs all pending changes. Closing with unsaved work asks Save / Discard / Cancel.
+- **Decision trees.** A map has one or more named trees, walked in `order`. Each node is a chip you can click; a node may assign one or several tags/genres and/or lead to deeper chips. Single-select nodes descend automatically; multi-select nodes let you pick several children and then queue those branches in turn.
+- **Skips.** Skip the current tree, the current file, a whole folder (you still visit its files), or the rest of the current folder.
+- **File-type filter.** Choose up-front whether to walk videos only, videos + images, or all files.
+- **Side panels.** Actors (with a type dropdown that defaults to *Actor*), Studios and Release date are always visible, pre-filled from the item, and editable/removable. Entries are listed with their type (`Alice (Actor)`, `Alice (Director)`). Live autocomplete uses the Jellyfin people/studios catalog; Name+Type duplicates are rejected. Filename suggestions appear inline in a distinct color; click one to promote it.
+- **Canonical title suggestion.** The suggested Name follows `[Studio1 | Studio2] Actor1, Actor2 - Videotitel (YYYY-MM-DD)` and rebuilds live as you edit studios, actors (Type=Actor only in the cast segment), core title, and the date field. Click the chip to copy it into *Set title*. Hash-like file titles fall back to the parent folder name for the Videotitel core.
+- **Filename suggestions.** Names like `[Studio]actor - title (date)` are parsed into Studio/Actor/Title/Date suggestions; the catalog reclassifies known studios that would otherwise be treated as actors (e.g. `StudioX - Alice`). Ambiguous dates (e.g. `123022`) are pruned to the valid readings.
+- **Folder stops.** Tagging a folder applies your choices to the folder itself **and** its direct contents as a base; an *Also apply to nested subfolders* checkbox cascades that base into nested subfolders and their contents too.
+- **Overwrite rule.** Only tag/genre values **owned by the trees you actually walked** are replaced. Manual tags, Auto Tags values, and values owned by trees you skipped are never touched. Actors/studios are set from the panel (merged into children on folder stops); the date fills in and (on the current item) updates `PremiereDate` + `ProductionYear`.
+- **Jellyfin link.** *Open in Jellyfin* opens the current item in the Jellyfin web UI.
+- Number keys pick chips; **Enter** submits an actor and confirms a multi-select.
+
+A ready-to-edit example map ships as [`tagmap.example.json`](tagmap.example.json). The JSON schema is:
+
+```jsonc
+{
+  "version": 1,
+  "trees": [
+    {
+      "name": "Type",           // tree name (required, unique)
+      "order": 1,                // walk order (ascending)
+      "multiSelect": false,      // may several of this tree's chips be picked at once?
+      "children": [
+        {
+          "label": "Solo",       // chip text
+          "multiSelect": false,  // may several of THIS node's children be picked?
+          "assign": [            // tags/genres this chip sets (optional; empty = traversal only)
+            { "kind": "tag",   "value": "solo" },
+            { "kind": "genre", "value": "Solo Scene" }
+          ],
+          "children": []         // deeper chips reached after picking this one
+        }
+      ]
+    }
+  ]
+}
+```
 
 #### ffprobe fallback for Auto Tags
 

@@ -15,6 +15,11 @@ public class JemmSettingsStore {
     private static final String KEY_USE_FFPROBE_FALLBACK = "useFfprobeFallback";
     private static final String KEY_USE_ASPECT_HINT_FALLBACK = "usePosterAspectFallback";
     private static final String KEY_CATEGORY_PREFIX = "autoTagCategory_";
+    private static final String KEY_TAG_MAP_PATH = "tagTeamMapPath";
+    private static final String KEY_TAG_TEAM_INCLUDE_VIDEOS = "tagTeamIncludeVideos";
+    private static final String KEY_TAG_TEAM_INCLUDE_IMAGES = "tagTeamIncludeImages";
+    private static final String KEY_TAG_TEAM_INCLUDE_OTHER = "tagTeamIncludeOther";
+    private static final String KEY_TAG_TEAM_CASCADE_SUBFOLDERS = "tagTeamCascadeSubfolders";
 
     private final Preferences prefs;
 
@@ -136,6 +141,119 @@ public class JemmSettingsStore {
             prefs.flush();
         } catch (Exception ex) {
             Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to save category flag", ex);
+        }
+    }
+
+    /**
+     * Returns the file location of the single active Tag-Team tag map. Defaults to
+     * {@code {user.home}/.jemm/tagmap.json} when nothing is stored.
+     *
+     * @return the tag-map file path, never null
+     */
+    public String getTagMapPath() {
+        try {
+            String def = System.getProperty("user.home") + java.io.File.separator + ".jemm"
+                    + java.io.File.separator + "tagmap.json";
+            return prefs.get(KEY_TAG_MAP_PATH, def);
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to read tag map path", ex);
+            return System.getProperty("user.home") + java.io.File.separator + ".jemm"
+                    + java.io.File.separator + "tagmap.json";
+        }
+    }
+
+    /**
+     * Stores the file location of the active Tag-Team tag map.
+     *
+     * @param path the tag-map file path
+     */
+    public void setTagMapPath(String path) {
+        try {
+            if (path != null && !path.trim().isEmpty()) {
+                prefs.put(KEY_TAG_MAP_PATH, path.trim());
+                prefs.flush();
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to save tag map path", ex);
+        }
+    }
+
+    /**
+     * Returns whether Tag-Team mode should include the given media class.
+     *
+     * @param kind one of "videos", "images" or "other"
+     * @return true when that media class should be walked
+     */
+    public boolean isTagTeamIncludes(String kind) {
+        try {
+            switch (kind) {
+                case "videos":
+                    return prefs.getBoolean(KEY_TAG_TEAM_INCLUDE_VIDEOS, true);
+                case "images":
+                    return prefs.getBoolean(KEY_TAG_TEAM_INCLUDE_IMAGES, false);
+                case "other":
+                    return prefs.getBoolean(KEY_TAG_TEAM_INCLUDE_OTHER, false);
+                default:
+                    return false;
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to read tag team filter", ex);
+            return "videos".equals(kind);
+        }
+    }
+
+    /**
+     * Stores whether Tag-Team mode should include the given media class.
+     *
+     * @param kind    one of "videos", "images" or "other"
+     * @param enabled true to include that media class
+     */
+    public void setTagTeamIncludes(String kind, boolean enabled) {
+        try {
+            switch (kind) {
+                case "videos":
+                    prefs.putBoolean(KEY_TAG_TEAM_INCLUDE_VIDEOS, enabled);
+                    break;
+                case "images":
+                    prefs.putBoolean(KEY_TAG_TEAM_INCLUDE_IMAGES, enabled);
+                    break;
+                case "other":
+                    prefs.putBoolean(KEY_TAG_TEAM_INCLUDE_OTHER, enabled);
+                    break;
+                default:
+                    return;
+            }
+            prefs.flush();
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to save tag team filter", ex);
+        }
+    }
+
+    /**
+     * Returns the last chosen "cascade folder base into nested subfolders" preference.
+     *
+     * @return true when folder stops should cascade into nested subfolders
+     */
+    public boolean isTagTeamCascadeSubfolders() {
+        try {
+            return prefs.getBoolean(KEY_TAG_TEAM_CASCADE_SUBFOLDERS, false);
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to read cascade flag", ex);
+            return false;
+        }
+    }
+
+    /**
+     * Stores the "cascade folder base into nested subfolders" preference.
+     *
+     * @param enabled true to cascade folder base values recursively
+     */
+    public void setTagTeamCascadeSubfolders(boolean enabled) {
+        try {
+            prefs.putBoolean(KEY_TAG_TEAM_CASCADE_SUBFOLDERS, enabled);
+            prefs.flush();
+        } catch (Exception ex) {
+            Logger.getLogger(JemmSettingsStore.class.getName()).log(Level.WARNING, "Failed to save cascade flag", ex);
         }
     }
 }

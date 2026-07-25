@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "trees": [
+    {
+      "name": "Type",
+      "order": 1,
+      "multiSelect": false,
+      "children": [
+        {
+          "label": "Solo",
+          "assign": [
+            { "kind": "tag", "value": "solo" }
+          ]
+        },
+        {
+          "label": "Duo",
+          "assign": [
+            { "kind": "tag", "value": "duo" }
+          ],
+          "children": [
+            {
+              "label": "Mixed",
+              "assign": [
+                { "kind": "tag", "value": "mixed" }
+              ]
+            },
+            {
+              "label": "Same",
+              "assign": [
+                { "kind": "tag", "value": "same" }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Group",
+          "assign": [
+            { "kind": "tag", "value": "group" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Setting",
+      "order": 2,
+      "multiSelect": true,
+      "children": [
+        {
+          "label": "Indoor",
+          "assign": [
+            { "kind": "tag", "value": "indoor" }
+          ]
+        },
+        {
+          "label": "Outdoor",
+          "assign": [
+            { "kind": "tag", "value": "outdoor" }
+          ]
+        },
+        {
+          "label": "Studio",
+          "assign": [
+            { "kind": "genre", "value": "Studio" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mood",
+      "order": 3,
+      "multiSelect": false,
+      "children": [
+        {
+          "label": "Calm",
+          "assign": [
+            { "kind": "tag", "value": "calm" },
+            { "kind": "genre", "value": "Relaxing" }
+          ]
+        },
+        {
+          "label": "Energetic",
+          "assign": [
+            { "kind": "tag", "value": "energetic" }
+          ]
+        }
+      ]
+    }
+  ]
+}

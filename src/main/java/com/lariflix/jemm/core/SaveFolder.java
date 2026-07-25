@@ -235,7 +235,7 @@ public class SaveFolder {
                             itemToUpdate.setId(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getId());
                             itemToUpdate.setName(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getName() );
                             itemToUpdate.setOriginalTitle(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getOriginalTitle() );
-                            itemToUpdate.setForcedSortName(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getOriginalTitle());
+                            itemToUpdate.setForcedSortName(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getForcedSortName());
                             itemToUpdate.setCommunityRating(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getCommunityRating());
                             itemToUpdate.setCriticRating(instance.getFolders().getItems().get(nI).getFolderContent().getItems().get(nJ).getItemMetadata().getCriticRating());
                             itemToUpdate.setIndexNumber(null);

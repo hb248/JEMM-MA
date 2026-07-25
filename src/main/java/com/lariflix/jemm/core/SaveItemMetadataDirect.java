@@ -72,7 +72,7 @@ public class SaveItemMetadataDirect {
         itemToUpdate.setId(metadata.getId());
         itemToUpdate.setName(metadata.getName());
         itemToUpdate.setOriginalTitle(metadata.getOriginalTitle());
-        itemToUpdate.setForcedSortName(metadata.getOriginalTitle());
+        itemToUpdate.setForcedSortName(metadata.getForcedSortName());
         itemToUpdate.setCommunityRating(metadata.getCommunityRating());
         itemToUpdate.setCriticRating(metadata.getCriticRating());
         itemToUpdate.setIndexNumber(null);

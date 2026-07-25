@@ -93,9 +93,15 @@ public class EpisodeNamerService {
                     metadata.setName(episodeName);
                     itemChanged = true;
                 }
-                if (config.setOriginalAndSort && !episodeName.equals(metadata.getOriginalTitle())) {
-                    metadata.setOriginalTitle(episodeName);
-                    itemChanged = true;
+                if (config.setOriginalAndSort) {
+                    if (!episodeName.equals(metadata.getOriginalTitle())) {
+                        metadata.setOriginalTitle(episodeName);
+                        itemChanged = true;
+                    }
+                    if (!episodeName.equals(metadata.getForcedSortName())) {
+                        metadata.setForcedSortName(episodeName);
+                        itemChanged = true;
+                    }
                 }
                 if (itemChanged) {
                     changed.add(metadata);
