@@ -529,7 +529,14 @@ public class TagTeamModeWindow extends JDialog {
     }
 
     private void refreshTitleSuggestion() {
-        String composed = TitleComposer.compose(studios, actors, coreTitle, dateInput.getText());
+        // Preview includes filename suggestions not yet clicked into the panels, so a folder
+        // like "[Studio]Actor" still suggests "[Studio] Actor" when Studio is only in catalog
+        // / suggestions and Actor is not yet on the item.
+        String composed = TitleComposer.compose(
+                mergeStudiosForTitlePreview(),
+                mergeActorsForTitlePreview(),
+                coreTitle,
+                dateInput.getText());
         boolean hasCompose = composed != null && !composed.isBlank();
         titleSuggestionButton.setText(hasCompose ? composed : "");
         titleSuggestionButton.setVisible(hasCompose);
@@ -545,6 +552,62 @@ public class TagTeamModeWindow extends JDialog {
         titleSuggestionWrap.setVisible(hasCompose || showFolderChip);
         titleSuggestionWrap.revalidate();
         titleSuggestionWrap.getParent().revalidate();
+    }
+
+    private List<JellyfinStudioItem> mergeStudiosForTitlePreview() {
+        List<JellyfinStudioItem> merged = new ArrayList<>(studios);
+        if (suggestions == null) {
+            return merged;
+        }
+        for (String name : suggestions.getStudios()) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            boolean exists = false;
+            for (JellyfinStudioItem s : merged) {
+                if (s.getName() != null && s.getName().equalsIgnoreCase(name.trim())) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                CatalogIndex.StudioEntry se = catalog.findStudio(name);
+                JellyfinStudioItem item = new JellyfinStudioItem();
+                item.setName(se != null ? se.getName() : name.trim());
+                item.setId(se != null ? se.getId() : null);
+                merged.add(item);
+            }
+        }
+        return merged;
+    }
+
+    private List<JellyfinPeopleItem> mergeActorsForTitlePreview() {
+        List<JellyfinPeopleItem> merged = new ArrayList<>(actors);
+        if (suggestions == null) {
+            return merged;
+        }
+        for (String name : suggestions.getActors()) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            boolean exists = false;
+            for (JellyfinPeopleItem p : merged) {
+                if (p.getName() != null && p.getName().equalsIgnoreCase(name.trim())
+                        && typesEqual(p.getType(), "Actor")) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                CatalogIndex.PersonEntry pe = catalog.findPerson(name, "Actor");
+                JellyfinPeopleItem person = new JellyfinPeopleItem();
+                person.setName(pe != null ? pe.getName() : name.trim());
+                person.setType("Actor");
+                person.setId(pe != null ? pe.getId() : null);
+                merged.add(person);
+            }
+        }
+        return merged;
     }
 
     // --- tag walking --------------------------------------------------------

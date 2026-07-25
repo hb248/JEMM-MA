@@ -67,6 +67,13 @@ public class SuggestionRefiner {
             }
             core = "";
         }
+        // Bracket form without " - " already puts the remainder into actors via the parser.
+        // If a lone title remains while studios exist and no actors were found, treat that
+        // title as an actor candidate even when the person is not yet in the Jellyfin catalog.
+        if (!blank(core) && !canonStudios.isEmpty() && actors.isEmpty()) {
+            actors.add(core.trim());
+            core = "";
+        }
 
         if (TitleComposer.isLowQualityTitle(core)) {
             mergeFromFolderFallback(out, canonStudios, actors, core, folderName);

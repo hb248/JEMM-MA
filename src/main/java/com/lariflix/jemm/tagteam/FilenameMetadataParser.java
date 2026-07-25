@@ -90,12 +90,17 @@ public class FilenameMetadataParser {
         }
 
         // 3) Actors and title from remainder, split on the first " - ".
+        // Convention: [Studio]actor - title. When studios came from [...] and there is no
+        // " - ", the remainder is the actor segment (not a Videotitel) — e.g. "[Studio]Alice".
         String actorsSegment = null;
         String titleSegment;
         int dash = work.indexOf(" - ");
         if (dash >= 0) {
             actorsSegment = work.substring(0, dash).trim();
             titleSegment = work.substring(dash + 3).trim();
+        } else if (!out.getStudios().isEmpty() && !work.isEmpty()) {
+            actorsSegment = work;
+            titleSegment = "";
         } else {
             titleSegment = work;
         }

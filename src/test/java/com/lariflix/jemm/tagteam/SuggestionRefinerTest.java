@@ -5,6 +5,7 @@ import com.lariflix.jemm.dtos.JellyfinCadStudioItem;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.Arrays;
+import java.util.List;
 
 public class SuggestionRefinerTest {
 
@@ -58,6 +59,43 @@ public class SuggestionRefinerTest {
         assertTrue(refined.getStudios().contains("StudioX"));
         assertTrue(refined.getActors().contains("Alice"));
         assertEquals("", refined.getTitle());
+    }
+
+    @Test
+    public void unknownActorAfterStudioStillBecomesCastNotTitle() {
+        // Studio known in catalog; person not yet in Jellyfin — still cast, not Videotitel.
+        FilenameSuggestions raw = parserStyleBracketNoDash("StudioX", "darsteller");
+        FilenameSuggestions refined = new SuggestionRefiner(catalog()).refine(raw, "");
+        assertTrue(refined.getStudios().contains("StudioX"));
+        assertTrue(refined.getActors().contains("darsteller"));
+        assertEquals("", refined.getTitle());
+
+        assertEquals("[StudioX] darsteller", TitleComposer.compose(
+                List.of(studio("StudioX")),
+                List.of(person("darsteller")),
+                refined.getTitle(),
+                ""));
+    }
+
+    private static FilenameSuggestions parserStyleBracketNoDash(String studio, String actor) {
+        FilenameSuggestions raw = new FilenameSuggestions();
+        raw.getStudios().add(studio);
+        raw.getActors().add(actor);
+        raw.setTitle("");
+        return raw;
+    }
+
+    private static com.lariflix.jemm.dtos.JellyfinStudioItem studio(String name) {
+        com.lariflix.jemm.dtos.JellyfinStudioItem s = new com.lariflix.jemm.dtos.JellyfinStudioItem();
+        s.setName(name);
+        return s;
+    }
+
+    private static com.lariflix.jemm.dtos.JellyfinPeopleItem person(String name) {
+        com.lariflix.jemm.dtos.JellyfinPeopleItem p = new com.lariflix.jemm.dtos.JellyfinPeopleItem();
+        p.setName(name);
+        p.setType("Actor");
+        return p;
     }
 
     @Test

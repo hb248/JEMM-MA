@@ -71,6 +71,14 @@ public class FilenameMetadataParserTest {
     }
 
     @Test
+    public void bracketStudioWithoutDashTreatsRemainderAsActor() {
+        FilenameSuggestions s = parser.parse("[StudioX]darsteller");
+        assertEquals(List.of("StudioX"), s.getStudios());
+        assertEquals(List.of("darsteller"), s.getActors());
+        assertEquals("", s.getTitle());
+    }
+
+    @Test
     public void emptyInputYieldsEmptySuggestions() {
         FilenameSuggestions s = parser.parse("");
         assertTrue(s.getStudios().isEmpty());
