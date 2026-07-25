@@ -20,6 +20,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
@@ -90,9 +92,13 @@ public class TagMapEditorWindow extends JDialog {
     private boolean dirty;
     private boolean suppressDetailEvents;
     private boolean saved;
-    /** Last committed tree name for retargeting {@code requires} on rename. */
+    /**
+     * Last committed tree/node name for retargeting {@code requires} on rename.
+     * Retargeting runs on focus-lost / selection change — not per keystroke — so the
+     * outline is not rebuilt while typing (which stole focus onto "Add tree").
+     */
+    private Object renameTarget;
     private String renameAnchorTreeName;
-    /** Last committed node label / enclosing tree for retargeting {@code requires}. */
     private String renameAnchorNodeLabel;
     private String renameAnchorNodeTree;
 
@@ -321,18 +327,21 @@ public class TagMapEditorWindow extends JDialog {
             if (suppressDetailEvents || !(selected instanceof TagTree)) {
                 return;
             }
-            String newName = treeNameField.getText();
-            String oldName = renameAnchorTreeName;
-            ((TagTree) selected).setName(newName);
-            if (oldName != null && !oldName.equals(newName)) {
-                retargetRequiresTree(oldName, newName);
-                renameAnchorTreeName = newName;
-            }
-            treeModel.nodeChanged(selected);
-            refreshPreview();
+            // Update model only — do not fire tree events / retarget while typing.
+            ((TagTree) selected).setName(treeNameField.getText());
             markDirty();
         });
         treeNameField.getDocument().addDocumentListener(nameListener);
+        treeNameField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                commitPendingRename();
+                if (selected instanceof TagTree) {
+                    treeModel.nodeChanged(selected);
+                    refreshPreview();
+                }
+            }
+        });
         treeOrderSpinner.addChangeListener(e -> {
             if (suppressDetailEvents || !(selected instanceof TagTree)) {
                 return;
@@ -354,18 +363,19 @@ public class TagMapEditorWindow extends JDialog {
             if (suppressDetailEvents || !(selected instanceof TagNode)) {
                 return;
             }
-            String newLabel = nodeLabelField.getText();
-            String oldLabel = renameAnchorNodeLabel;
-            String treeName = renameAnchorNodeTree;
-            ((TagNode) selected).setLabel(newLabel);
-            if (oldLabel != null && treeName != null && !oldLabel.equals(newLabel)) {
-                retargetRequiresNode(treeName, oldLabel, newLabel);
-                renameAnchorNodeLabel = newLabel;
-            }
-            treeModel.nodeChanged(selected);
-            refreshPreview();
+            ((TagNode) selected).setLabel(nodeLabelField.getText());
             markDirty();
         }));
+        nodeLabelField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                commitPendingRename();
+                if (selected instanceof TagNode) {
+                    treeModel.nodeChanged(selected);
+                    refreshPreview();
+                }
+            }
+        });
         nodeMultiBox.addActionListener(e -> {
             if (suppressDetailEvents || !(selected instanceof TagNode)) {
                 return;
@@ -464,8 +474,10 @@ public class TagMapEditorWindow extends JDialog {
     }
 
     private void onSelectionChanged() {
+        commitPendingRename();
         TreePath path = outline.getSelectionPath();
         selected = path == null ? null : path.getLastPathComponent();
+        renameTarget = selected;
         suppressDetailEvents = true;
         try {
             if (selected instanceof TagTree) {
@@ -500,6 +512,31 @@ public class TagMapEditorWindow extends JDialog {
         }
         refreshPreview();
         updateToolbar();
+    }
+
+    /**
+     * Applies deferred {@code requires} retargeting after a tree/node rename finishes
+     * (focus lost or selection change). Safe to call repeatedly.
+     */
+    private void commitPendingRename() {
+        if (renameTarget instanceof TagTree) {
+            TagTree t = (TagTree) renameTarget;
+            String newName = t.getName() == null ? "" : t.getName();
+            String oldName = renameAnchorTreeName;
+            if (oldName != null && !oldName.equals(newName)) {
+                retargetRequiresTree(oldName, newName);
+            }
+            renameAnchorTreeName = newName;
+        } else if (renameTarget instanceof TagNode) {
+            TagNode n = (TagNode) renameTarget;
+            String newLabel = n.getLabel() == null ? "" : n.getLabel();
+            String oldLabel = renameAnchorNodeLabel;
+            String treeName = renameAnchorNodeTree;
+            if (oldLabel != null && treeName != null && !oldLabel.equals(newLabel)) {
+                retargetRequiresNode(treeName, oldLabel, newLabel);
+            }
+            renameAnchorNodeLabel = newLabel;
+        }
     }
 
     private void showEmptyDetail() {
@@ -539,6 +576,7 @@ public class TagMapEditorWindow extends JDialog {
 
     private boolean save(boolean closeAfter) {
         commitEditors();
+        commitPendingRename();
         TagMap map = treeModel.getMap();
         treeModel.renumberTreeOrders();
         if (!validateForSave(map)) {
@@ -736,24 +774,30 @@ public class TagMapEditorWindow extends JDialog {
         if (oldTreeName == null || newTreeName == null) {
             return;
         }
+        List<TagNode> touched = new ArrayList<>();
         for (TagTree tree : treeModel.getMap().getTrees()) {
-            retargetRequiresInNodes(tree.getChildren(), oldTreeName, null, newTreeName, null);
+            retargetRequiresInNodes(tree.getChildren(), oldTreeName, null, newTreeName, null, touched);
         }
-        treeModel.structureChanged();
+        for (TagNode n : touched) {
+            treeModel.nodeChanged(n);
+        }
     }
 
     private void retargetRequiresNode(String treeName, String oldLabel, String newLabel) {
         if (treeName == null || oldLabel == null || newLabel == null) {
             return;
         }
+        List<TagNode> touched = new ArrayList<>();
         for (TagTree tree : treeModel.getMap().getTrees()) {
-            retargetRequiresInNodes(tree.getChildren(), treeName, oldLabel, treeName, newLabel);
+            retargetRequiresInNodes(tree.getChildren(), treeName, oldLabel, treeName, newLabel, touched);
         }
-        treeModel.structureChanged();
+        for (TagNode n : touched) {
+            treeModel.nodeChanged(n);
+        }
     }
 
     private void retargetRequiresInNodes(List<TagNode> nodes, String matchTree, String matchLabel,
-            String newTree, String newLabel) {
+            String newTree, String newLabel, List<TagNode> touched) {
         if (nodes == null) {
             return;
         }
@@ -766,8 +810,9 @@ public class TagMapEditorWindow extends JDialog {
                 if (newLabel != null) {
                     req.setLabel(newLabel);
                 }
+                touched.add(n);
             }
-            retargetRequiresInNodes(n.getChildren(), matchTree, matchLabel, newTree, newLabel);
+            retargetRequiresInNodes(n.getChildren(), matchTree, matchLabel, newTree, newLabel, touched);
         }
     }
 
