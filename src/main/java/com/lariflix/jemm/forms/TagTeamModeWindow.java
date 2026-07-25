@@ -38,6 +38,7 @@ import java.awt.event.WindowEvent;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -625,16 +626,24 @@ public class TagTeamModeWindow extends JDialog {
         currentMulti = walker.isCurrentMultiSelect();
         tagTreeLabel.setText("<html>Tree " + walker.currentTreeNumber() + "/" + walker.treeCount()
                 + ": <b>" + escape(walker.currentTreeName()) + "</b>"
-                + (currentMulti ? " (multi-select)" : "") + "</html>");
+                + (currentMulti ? " (multi-select; exclusive chips advance immediately)" : "")
+                + "</html>");
         int n = 1;
         for (TagNode node : currentOptions) {
             String label = (n <= 9 ? n + ". " : "") + (node.getLabel() == null ? "" : node.getLabel());
-            AbstractButton button = currentMulti ? new JToggleButton(label) : new JButton(label);
-            button.setAlignmentX(0f);
             final TagNode captured = node;
+            final boolean exclusiveInMulti = currentMulti && node.isExclusive();
+            AbstractButton button = (currentMulti && !exclusiveInMulti)
+                    ? new JToggleButton(label) : new JButton(label);
+            button.setAlignmentX(0f);
             if (!currentMulti) {
                 button.addActionListener(e -> {
                     walker.selectSingle(captured);
+                    refreshAfterWalk();
+                });
+            } else if (exclusiveInMulti) {
+                button.addActionListener(e -> {
+                    walker.confirmMultiSelect(Collections.singletonList(captured));
                     refreshAfterWalk();
                 });
             }
@@ -666,8 +675,14 @@ public class TagTeamModeWindow extends JDialog {
             return;
         }
         if (currentMulti) {
-            AbstractButton b = chipButtons.get(index);
-            b.setSelected(!b.isSelected());
+            TagNode node = currentOptions.get(index);
+            if (node != null && node.isExclusive()) {
+                walker.confirmMultiSelect(Collections.singletonList(node));
+                refreshAfterWalk();
+            } else {
+                AbstractButton b = chipButtons.get(index);
+                b.setSelected(!b.isSelected());
+            }
         } else {
             walker.selectSingle(currentOptions.get(index));
             refreshAfterWalk();

@@ -118,6 +118,9 @@ public class TagMapTreeModel implements TreeModel {
             if (n.isMultiSelect()) {
                 label = label + " [multi]";
             }
+            if (n.isExclusive()) {
+                label = label + " [excl]";
+            }
             if (n.assignsAnything()) {
                 label = label + " (" + n.getAssign().size() + ")";
             }

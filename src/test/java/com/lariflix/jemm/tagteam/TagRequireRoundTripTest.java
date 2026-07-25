@@ -45,4 +45,26 @@ public class TagRequireRoundTripTest {
         assertEquals("Type", round.getRequires().getTree());
         assertEquals("Duo", round.getRequires().getLabel());
     }
+
+    @Test
+    public void loaderPreservesExclusive() throws Exception {
+        TagNode none = new TagNode();
+        none.setLabel("N/A");
+        none.setExclusive(true);
+        none.getAssign().add(new TagAssign(AssignKind.TAG, "na"));
+
+        TagTree setting = new TagTree();
+        setting.setName("Setting");
+        setting.setOrder(1);
+        setting.setMultiSelect(true);
+        setting.setChildren(new ArrayList<>(Arrays.asList(none)));
+
+        TagMap map = new TagMap();
+        map.setVersion(1);
+        map.setTrees(new ArrayList<>(Arrays.asList(setting)));
+
+        TagMapLoader loader = new TagMapLoader();
+        TagMap again = loader.parse(loader.toJson(map));
+        assertTrue(again.getTrees().get(0).getChildren().get(0).isExclusive());
+    }
 }

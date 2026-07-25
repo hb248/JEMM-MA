@@ -74,6 +74,7 @@ public class TagMapEditorWindow extends JDialog {
 
     private final JTextField nodeLabelField = new JTextField();
     private final JCheckBox nodeMultiBox = new JCheckBox("Multi-select (several of this node's children)");
+    private final JCheckBox nodeExclusiveBox = new JCheckBox("Exclusive (click ends multi-select)");
     private final JComboBox<RequireChoice> requiresCombo = new JComboBox<>();
     private final AssignTableModel assignModel = new AssignTableModel();
     private final JTable assignTable = new JTable(assignModel);
@@ -257,6 +258,8 @@ public class TagMapEditorWindow extends JDialog {
         c.gridwidth = 2;
         top.add(nodeMultiBox, c);
         c.gridy = 2;
+        top.add(nodeExclusiveBox, c);
+        c.gridy = 3;
         c.gridwidth = 1;
         c.weightx = 0;
         top.add(new JLabel("Only if selected"), c);
@@ -372,6 +375,15 @@ public class TagMapEditorWindow extends JDialog {
             refreshPreview();
             markDirty();
         });
+        nodeExclusiveBox.addActionListener(e -> {
+            if (suppressDetailEvents || !(selected instanceof TagNode)) {
+                return;
+            }
+            ((TagNode) selected).setExclusive(nodeExclusiveBox.isSelected());
+            treeModel.nodeChanged(selected);
+            refreshPreview();
+            markDirty();
+        });
         requiresCombo.addActionListener(e -> {
             if (suppressDetailEvents || !(selected instanceof TagNode)) {
                 return;
@@ -471,6 +483,7 @@ public class TagMapEditorWindow extends JDialog {
                         ? "" : enclosing.getName();
                 nodeLabelField.setText(renameAnchorNodeLabel);
                 nodeMultiBox.setSelected(n.isMultiSelect());
+                nodeExclusiveBox.setSelected(n.isExclusive());
                 assignModel.bind(n);
                 populateRequiresCombo(n, enclosing);
                 detailCards.show(detailHost, "node");

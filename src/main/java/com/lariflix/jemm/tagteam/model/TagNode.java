@@ -9,6 +9,8 @@ import java.util.List;
  * an empty {@code assign} list makes the node traversal-only. {@code multiSelect} controls
  * whether the user may pick several of this node's children at once.
  * Optional {@link #requires} hides the chip unless that prerequisite was selected earlier.
+ * Optional {@link #exclusive}: in a multi-select frame, clicking the chip confirms only
+ * that chip and advances immediately (no combining with other toggles).
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TagNode {
@@ -16,6 +18,7 @@ public class TagNode {
     private String label;
     private List<TagAssign> assign = new ArrayList<>();
     private boolean multiSelect;
+    private boolean exclusive;
     private TagRequire requires;
     private List<TagNode> children = new ArrayList<>();
 
@@ -41,6 +44,14 @@ public class TagNode {
 
     public void setMultiSelect(boolean multiSelect) {
         this.multiSelect = multiSelect;
+    }
+
+    public boolean isExclusive() {
+        return exclusive;
+    }
+
+    public void setExclusive(boolean exclusive) {
+        this.exclusive = exclusive;
     }
 
     public TagRequire getRequires() {

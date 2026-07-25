@@ -62,6 +62,13 @@
           "assign": [
             { "kind": "genre", "value": "Studio" }
           ]
+        },
+        {
+          "label": "N/A",
+          "exclusive": true,
+          "assign": [
+            { "kind": "tag", "value": "setting-na" }
+          ]
         }
       ]
     },
