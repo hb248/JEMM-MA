@@ -51,6 +51,19 @@ public class TitleComposerTest {
         assertEquals("Nice Title", TitleComposer.resolveCoreTitle("Nice Title", "Folder Name"));
     }
 
+    @Test
+    public void sanitizeStripsStudiosAndActorsAlreadyInPanels() {
+        assertEquals("", TitleComposer.sanitizeCoreTitle(
+                "[StudioX] Alice",
+                Arrays.asList("StudioX"),
+                Arrays.asList("Alice")));
+        assertEquals("[StudioX] Alice (2024-01-02)", TitleComposer.compose(
+                Arrays.asList(studio("StudioX")),
+                Arrays.asList(person("Alice", "Actor")),
+                "[StudioX] Alice",
+                "2024-01-02"));
+    }
+
     private JellyfinStudioItem studio(String name) {
         JellyfinStudioItem s = new JellyfinStudioItem();
         s.setName(name);

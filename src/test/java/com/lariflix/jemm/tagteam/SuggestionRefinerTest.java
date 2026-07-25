@@ -42,12 +42,38 @@ public class SuggestionRefinerTest {
         FilenameSuggestions refined = new SuggestionRefiner(catalog()).refine(raw, "My Folder");
         assertTrue(refined.getStudios().contains("StudioX"));
         assertTrue(refined.getActors().contains("Alice"));
-        // Title was a known person -> core falls back to folder.
+        // Title was a known person -> empty core; folder "My Folder" has no brackets so
+        // its whole name becomes the Videotitel segment.
         assertEquals("My Folder", refined.getTitle());
     }
 
     @Test
-    public void lowQualityTitleUsesFolder() {
+    public void bracketStudioActorFolderDoesNotDuplicateAsCore() {
+        // Mimics parser output for folder "[StudioX] Alice"
+        FilenameSuggestions raw = new FilenameSuggestions();
+        raw.getStudios().add("StudioX");
+        raw.setTitle("Alice");
+
+        FilenameSuggestions refined = new SuggestionRefiner(catalog()).refine(raw, "");
+        assertTrue(refined.getStudios().contains("StudioX"));
+        assertTrue(refined.getActors().contains("Alice"));
+        assertEquals("", refined.getTitle());
+    }
+
+    @Test
+    public void lowQualityFileTitleParsesParentFolder() {
+        FilenameSuggestions raw = new FilenameSuggestions();
+        raw.setTitle("a1b2c3d4e5f67890");
+        FilenameSuggestions refined = new SuggestionRefiner(catalog())
+                .refine(raw, "[StudioX] Alice");
+        assertTrue(refined.getStudios().contains("StudioX"));
+        assertTrue(refined.getActors().contains("Alice"));
+        // Folder title segment was the actor — no leftover Videotitel.
+        assertEquals("", refined.getTitle());
+    }
+
+    @Test
+    public void lowQualityTitleUsesFolderTitleSegment() {
         FilenameSuggestions raw = new FilenameSuggestions();
         raw.setTitle("a1b2c3d4e5f67890");
         FilenameSuggestions refined = new SuggestionRefiner(catalog()).refine(raw, "Nice Folder");

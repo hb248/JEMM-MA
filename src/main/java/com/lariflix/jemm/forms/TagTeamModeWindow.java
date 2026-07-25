@@ -481,7 +481,9 @@ public class TagTeamModeWindow extends JDialog {
         titleView.setCaretPosition(0);
         titleInput.setText("");
 
-        folderNameForTitle = navigator.parentFolderName(currentStop);
+        // For folder stops, do not use the folder's own name as a title fallback — that
+        // reintroduces "[Studio] Actor" as the core and duplicates studios in the compose.
+        folderNameForTitle = currentStop.isFolder() ? "" : navigator.parentFolderName(currentStop);
         String source = currentMeta.getPath() != null && !currentMeta.getPath().isEmpty()
                 ? currentMeta.getPath() : name;
         FilenameSuggestions raw = parser.parse(source);

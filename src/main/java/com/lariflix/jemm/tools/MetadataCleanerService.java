@@ -19,6 +19,11 @@ public class MetadataCleanerService {
 
     public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios,
             boolean preferredLangCountry, boolean autoTagsOnly) {
+        return clear(metadata, tags, people, genres, studios, preferredLangCountry, autoTagsOnly, false);
+    }
+
+    public boolean clear(JellyfinItemMetadata metadata, boolean tags, boolean people, boolean genres, boolean studios,
+            boolean preferredLangCountry, boolean autoTagsOnly, boolean ratings) {
         if (metadata == null) {
             return false;
         }
@@ -27,6 +32,13 @@ public class MetadataCleanerService {
             if (isSet(metadata.getPreferredMetadataLanguage()) || isSet(metadata.getPreferredMetadataCountryCode())) {
                 metadata.setPreferredMetadataLanguage(null);
                 metadata.setPreferredMetadataCountryCode(null);
+                changed = true;
+            }
+        }
+        if (ratings) {
+            if (metadata.getCommunityRating() != 0 || metadata.getCriticRating() != 0) {
+                metadata.setCommunityRating(0);
+                metadata.setCriticRating(0);
                 changed = true;
             }
         }

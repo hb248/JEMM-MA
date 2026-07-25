@@ -38,6 +38,7 @@ public class MetadataCleanerDialog extends JDialog {
     private final JCheckBox genresBox = new JCheckBox("Genres", false);
     private final JCheckBox studiosBox = new JCheckBox("Studios", false);
     private final JCheckBox prefLangCountryBox = new JCheckBox("Preferred language & country", false);
+    private final JCheckBox ratingsBox = new JCheckBox("Community & Critic rating (reset to 0)", false);
     private final JCheckBox includeFoldersBox = new JCheckBox("Also clean the folders themselves (not just media)", false);
     private final JLabel statusLabel = new JLabel("Choose metadata types to clear.");
     private final JProgressBar progressBar = new JProgressBar();
@@ -49,7 +50,7 @@ public class MetadataCleanerDialog extends JDialog {
         super(owner, "JEMM - Metadata Cleaner", true);
         this.api = api;
         this.selectedFolderIds = resolveFolderIds(instance, selectedFolderIndexes);
-        setSize(560, 330);
+        setSize(560, 360);
         setLocationRelativeTo(owner);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(8, 8));
@@ -62,6 +63,7 @@ public class MetadataCleanerDialog extends JDialog {
         options.add(genresBox);
         options.add(studiosBox);
         options.add(prefLangCountryBox);
+        options.add(ratingsBox);
         options.add(includeFoldersBox);
         add(options, BorderLayout.NORTH);
 
@@ -112,8 +114,9 @@ public class MetadataCleanerDialog extends JDialog {
         boolean genres = genresBox.isSelected();
         boolean studios = studiosBox.isSelected();
         boolean prefLangCountry = prefLangCountryBox.isSelected();
+        boolean ratings = ratingsBox.isSelected();
         boolean includeFolders = includeFoldersBox.isSelected();
-        if (!tags && !people && !genres && !studios && !prefLangCountry) {
+        if (!tags && !people && !genres && !studios && !prefLangCountry && !ratings) {
             JOptionPane.showMessageDialog(this, "Select at least one metadata type.", "Metadata Cleaner", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -159,7 +162,8 @@ public class MetadataCleanerDialog extends JDialog {
                     index++;
                     publish("Item " + index + "/" + items.size());
                     try {
-                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios, prefLangCountry, autoTagsOnly);
+                        boolean changed = cleaner.clear(item.getMetadata(), tags, people, genres, studios,
+                                prefLangCountry, autoTagsOnly, ratings);
                         if (!changed) {
                             result.skipped++;
                         } else {
