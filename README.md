@@ -32,10 +32,20 @@ Credit and thanks to [Cesar Bianchi](https://github.com/CesarBianchi) for the or
 
 ### New tools
 
-- **Auto Tags** – Adds tags from technical media info: orientation (`vertical` / `horizontal` / `square`), frame rate (`low fps` / `standart fps` / `high fps`, videos only), resolution (`SD` / `HD` / `FULL HD` / `2K` / `4K`, plus `ULTRA RES` for very large images), and a quality rating (`QR1`, `QR2`, …) from resolution vs. bitrate. Only its own computed tags are added/updated; your manual tags are left alone.
+- **Auto Tags** – Adds tags from technical media info: orientation (`vertical` / `horizontal` / `square`), frame rate (`low fps` / `standart fps` / `high fps`, videos only), resolution (`SD` / `HD` / `FULL HD` / `2K` / `4K` / `6K` / `8K` / `ULTRA RES`, the same ladder for videos and images), and a linear quality rating (`QR0`, `QR1`, `QR2`, …) from data density per megapixel — bitrate for videos (normalized to the standard 24–30 fps range so low/high-fps clips aren't mis-rated) and file size x4 for images. Only its own computed tags are added/updated; your manual tags are left alone. Orientation and resolution are always derived from **real pixel dimensions** (never guessed from the poster/aspect-ratio hint). When Jellyfin's API doesn't expose the technical data, an optional **ffprobe** fallback reads it directly from the media — see below.
 - **Metadata Cleaner** – Bulk-clears selected metadata (Tags, People, Genres, Studios and/or preferred language & country) so you can start clean before applying new logic. Optionally also cleans the folders themselves, not just the media.
 - **Episode Namer** – Assigns sequential episode-style names (e.g. `<base> - EP01`, `EP02`, …). The base can be each folder’s name or a custom prefix; numbering restarts per folder; you choose Name and/or Original Title & Sort Name. Opt-in only (see below).
 - **Name Cleanup** – Reverts episode naming: removes a trailing `" - EP##"` from the Name (or resets the Name from the file name) and can clear Original Title & Sort Name.
+
+#### ffprobe fallback for Auto Tags
+
+Auto Tags first uses the technical data Jellyfin already exposes (MediaStreams / item Width & Height). If that data is missing for an item, it can optionally fall back to **[ffprobe](https://ffmpeg.org/ffprobe.html)** to read the real width, height, frame rate, bitrate and file size straight from the media — so orientation/resolution are always correct instead of skipped.
+
+- Enable it with the **Use ffprobe as fallback** checkbox in the Auto Tags dialog (on by default; the setting is remembered).
+- ffprobe is expected on your system **PATH**; you can also point to a specific binary via the path field.
+- Input is chosen automatically: the item's **local file path** when it is reachable from the machine running JEMM, otherwise the Jellyfin **download URL**.
+- If ffprobe isn't available, Auto Tags simply uses the API-only data and reports it in the summary.
+- An optional second checkbox lets you fall back to the **poster/aspect-ratio hint** for orientation only when ffprobe is unavailable (the ffprobe issue is still reported). This is a best-effort guess; resolution and other tags still require real dimensions.
 
 ### Quality of life
 

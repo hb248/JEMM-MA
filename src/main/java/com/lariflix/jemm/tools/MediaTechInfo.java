@@ -77,11 +77,6 @@ public class MediaTechInfo {
         }
         info.valid = info.width > 0 && info.height > 0;
 
-        if (!info.valid && metadata.getAspectRatio() != null && !metadata.getAspectRatio().isBlank()) {
-            // Keep invalid dimensions but allow orientation fallback via aspect ratio string in rules.
-            info.valid = false;
-        }
-
         if (!info.video && !info.image) {
             // Fallback: treat as video when we have frame rate / typical movie containers.
             info.video = info.frameRate > 0 || info.bitRate > 0;
@@ -167,6 +162,54 @@ public class MediaTechInfo {
 
     public boolean isValid() {
         return valid;
+    }
+
+    /**
+     * Indicates whether the API-derived facts are incomplete and ffprobe should
+     * be consulted to fill the gaps.
+     *
+     * @return true when dimensions are missing, or a video lacks fps/bitrate,
+     *         or an image lacks a file size
+     */
+    public boolean needsProbe() {
+        if (width <= 0 || height <= 0) {
+            return true;
+        }
+        if (video && (frameRate <= 0 || bitRate <= 0)) {
+            return true;
+        }
+        if (image && fileSize <= 0) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Fills only the currently-missing fields from an ffprobe result, then
+     * recomputes validity. Existing (API-provided) values are never overwritten.
+     *
+     * @param probe the ffprobe result, may be null
+     */
+    public void merge(FfprobeResult probe) {
+        if (probe == null) {
+            return;
+        }
+        if (width <= 0 && probe.getWidth() > 0) {
+            width = probe.getWidth();
+        }
+        if (height <= 0 && probe.getHeight() > 0) {
+            height = probe.getHeight();
+        }
+        if (frameRate <= 0 && probe.getFrameRate() > 0) {
+            frameRate = probe.getFrameRate();
+        }
+        if (bitRate <= 0 && probe.getBitRate() > 0) {
+            bitRate = probe.getBitRate();
+        }
+        if (fileSize <= 0 && probe.getFileSize() > 0) {
+            fileSize = probe.getFileSize();
+        }
+        valid = width > 0 && height > 0;
     }
 
     public double megapixels() {

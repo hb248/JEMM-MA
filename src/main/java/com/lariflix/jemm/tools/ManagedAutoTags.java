@@ -24,17 +24,19 @@ public final class ManagedAutoTags {
     public static final String FULL_HD = "FULL HD";
     public static final String TWO_K = "2K";
     public static final String FOUR_K = "4K";
+    public static final String SIX_K = "6K";
+    public static final String EIGHT_K = "8K";
     public static final String ULTRA_RES = "ULTRA RES";
 
     private static final Set<String> ORIENTATION = Set.of(VERTICAL, HORIZONTAL, SQUARE);
     private static final Set<String> FPS = Set.of(LOW_FPS, STANDART_FPS, HIGH_FPS);
-    private static final Set<String> RESOLUTION = Set.of(SD, HD, FULL_HD, TWO_K, FOUR_K, ULTRA_RES);
+    private static final Set<String> RESOLUTION = Set.of(SD, HD, FULL_HD, TWO_K, FOUR_K, SIX_K, EIGHT_K, ULTRA_RES);
 
     private ManagedAutoTags() {
     }
 
     public static String qrLevel(int level) {
-        return "QR" + Math.max(1, level);
+        return "QR" + Math.max(0, level);
     }
 
     public static boolean isManaged(String tag) {
