@@ -46,4 +46,7 @@ hs_err_pid*
 replay_pid*
 /nbproject/
 nbactions.xml
-/target/
+
+# Build output — keep only the fat runnable jar for downloads
+/target/*
+!/target/jemm_runnable-jar-with-dependencies.jar
